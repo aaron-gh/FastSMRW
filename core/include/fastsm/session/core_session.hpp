@@ -362,6 +362,9 @@ private:
     std::map<std::string, std::vector<std::unique_ptr<TimelineController>>> parked_;
     // Closed timelines kept alive (with in-flight async) until shutdown.
     std::vector<std::unique_ptr<TimelineController>> retired_;
+    // Logged-out accounts kept alive the same way: a background refresh/action
+    // may still be running against one when its timelines close it out.
+    std::vector<std::unique_ptr<SocialAccount>> retired_accounts_;
     int current_ = 0;
 
     // Between begin_mastodon_login (app registered) and finish_mastodon_login

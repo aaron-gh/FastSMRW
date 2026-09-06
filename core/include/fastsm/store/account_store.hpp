@@ -19,7 +19,10 @@ public:
 
     void load(const store::AppConfig& config); // rebuild from disk
     void add(std::unique_ptr<SocialAccount> account, store::StoredCredential credential);
-    void remove(const std::string& account_key);
+    // Returns the removed account (or null if not found) instead of destroying it:
+    // a background worker task may still be running against it, so the caller
+    // must keep it alive until that work finishes rather than freeing it here.
+    std::unique_ptr<SocialAccount> remove(const std::string& account_key);
     void select(const std::string& account_key);
 
     bool empty() const { return entries_.empty(); }

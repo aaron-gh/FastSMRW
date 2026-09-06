@@ -4,6 +4,7 @@ FastSMRW changelog
 0.5.3
 -----
 
+- Fixed: logging out of an account no longer occasionally crashes the app if something was still loading for it in the background.
 - New: optionally hide Bluesky replies to people you do not follow with the timeline's client filters.
 - Fixed: pressing Enter on a follow request offers Accept and Reject again — and now works in every app, including the invisible interface, the Mac, iPhone, Android, and Linux.
 - Fixed: on Android, the timeline tab bar no longer hides behind the on-screen navigation bar when set to the bottom of the screen, so the tabs are always visible and reachable by touch and TalkBack.

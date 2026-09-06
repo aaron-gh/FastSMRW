@@ -41,15 +41,18 @@ void AccountStore::add(std::unique_ptr<SocialAccount> account, store::StoredCred
     entries_.push_back({std::move(account), std::move(credential)});
 }
 
-void AccountStore::remove(const std::string& account_key) {
+std::unique_ptr<SocialAccount> AccountStore::remove(const std::string& account_key) {
+    std::unique_ptr<SocialAccount> removed;
     for (auto it = entries_.begin(); it != entries_.end(); ++it) {
         if (it->account->account_key() == account_key) {
+            removed = std::move(it->account);
             entries_.erase(it);
             break;
         }
     }
     if (selected() == nullptr)
         selected_key_ = entries_.empty() ? std::string{} : entries_.front().account->account_key();
+    return removed;
 }
 
 void AccountStore::select(const std::string& account_key) {

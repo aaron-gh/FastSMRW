@@ -681,12 +681,36 @@ void CoreSession::cmd_finish_mastodon_login(const json& cmd) {
 void CoreSession::cmd_remove_account(const json& cmd) {
     const std::string removed = cmd.value("key", std::string{});
     const bool was_selected = removed == accounts_.selected_key();
-    accounts_.remove(removed); // may auto-select the first remaining account
+
+    // Retire the removed account's timeline controllers instead of destroying
+    // them outright: a background refresh/action may still be in flight and
+    // will touch `this` (and the account) when it completes, so both must
+    // outlive that work — same reasoning as cmd_close_timeline's retired_.
+    auto retire_timeline = [this](std::unique_ptr<TimelineController>& tc) {
+        tc->on_change = nullptr;
+        tc->on_error = nullptr;
+        tc->on_received_new = nullptr;
+        tc->on_new_items = nullptr;
+        tc->on_refreshed = nullptr;
+        tc->on_user_moved = nullptr;
+        retired_.push_back(std::move(tc));
+    };
+    if (auto it = parked_.find(removed); it != parked_.end()) {
+        for (auto& tc : it->second)
+            retire_timeline(tc);
+        parked_.erase(it);
+    }
+    if (was_selected) {
+        for (auto& tc : timelines_)
+            retire_timeline(tc);
+        timelines_.clear();
+    }
+
+    if (auto acct = accounts_.remove(removed)) // may auto-select the first remaining account
+        retired_accounts_.push_back(std::move(acct)); // keep alive for in-flight worker tasks
     settings_.account_soundpacks.erase(removed); // drop its per-account soundpack
     save_config();
-    parked_.erase(removed);
     if (was_selected) {
-        timelines_.clear(); // drop the removed account's (displayed) timelines
         current_ = 0;
         apply_active_soundpack(); // follow the newly-selected account's pack
         const std::string now = accounts_.selected_key();

@@ -4,6 +4,7 @@ FastSMRW changelog
 0.6.1
 -----
 
+- Fixed: on Android, posts missing after a refresh now load when you reach them, instead of being skipped.
 - Fixed: on Android, posts now keep their line breaks on screen.
 - Fixed: on Android, the post editor now opens in the text box, ready to type, instead of on the Cancel button.
 - Fixed: on Android, opening the app no longer shows the Add Account screen for a moment while your accounts load.

@@ -68,6 +68,8 @@ in what order in Settings, under Post actions. Available actions include:
 - Boost or unboost, Favourite or unfavourite, Bookmark or remove bookmark.
 - View media (when the post has any; if there is more than one, you pick which).
 - View conversation (open the thread).
+- Post info: the whole post, including the text behind a content warning, with
+  Reply, Boost, Favourite, Quote, Vote (open polls), Open in browser and Report.
 - Mute or unmute the conversation.
 - See who favourited it, See who boosted it (when there are any).
 - Copy.

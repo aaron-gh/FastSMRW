@@ -53,6 +53,8 @@ fun StatusRow(
     onOpenLink: (String) -> Unit,
     onOpenLinks: (String) -> Unit,
     onOpenThread: (String) -> Unit,
+    /** Post Info: the full text (content-warning text included) and actions. */
+    onPostInfo: (String) -> Unit,
     onOpenAuthor: (String) -> Unit,
     onOpenProfile: (String) -> Unit,
     onMessageUser: (String) -> Unit,
@@ -107,6 +109,7 @@ fun StatusRow(
                 "links" -> MenuAction("Open links") { onOpenLinks(row.id) }
                 "play_media" -> if (row.hasMedia) MenuAction("View media") { onViewMedia(row.id) } else null
                 "thread" -> MenuAction("View conversation") { onOpenThread(row.id) }
+                "post_info" -> MenuAction("Post info") { onPostInfo(row.id) }
                 "mute_conversation" ->
                     MenuAction(if (row.muted) "Unmute conversation" else "Mute conversation") {
                         onToggleMuteConversation(row.id)

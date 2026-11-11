@@ -182,6 +182,25 @@ data class ProfileUi(
 data class CatalogEntry(val key: String, val label: String)
 
 /**
+ * Post Info: the post's full composed text (content-warning text included, whatever
+ * the timeline's content-warning setting) and what can be done with it.
+ */
+data class PostInfoUi(
+    val id: String,
+    val text: String,
+    val hasUrl: Boolean,
+    val isMine: Boolean,
+    val muted: Boolean,
+    val favoritesCount: Int,
+    val boostsCount: Int,
+    val canQuote: Boolean,
+    val canMuteConversation: Boolean,
+    /** A poll the viewer can still vote in; null when there is none or it's closed. */
+    val pollOptions: List<String>?,
+    val pollMultiple: Boolean,
+)
+
+/**
  * Everything the compose screen needs, from the core's compose_context event:
  * prefill, the post being replied-to/quoted/edited, platform capabilities, and
  * the char limit. Presenting when non-null opens the composer.
@@ -342,6 +361,9 @@ class CoreViewModel(app: Application) : AndroidViewModel(app) {
     val movementCatalog: StateFlow<List<CatalogEntry>> = _movementCatalog.asStateFlow()
     private val _postActionCatalog = MutableStateFlow<List<CatalogEntry>>(emptyList())
     val postActionCatalog: StateFlow<List<CatalogEntry>> = _postActionCatalog.asStateFlow()
+
+    private val _postInfo = MutableStateFlow<PostInfoUi?>(null)
+    val postInfo: StateFlow<PostInfoUi?> = _postInfo.asStateFlow()
 
     private val _profile = MutableStateFlow<ProfileUi?>(null)
     val profile: StateFlow<ProfileUi?> = _profile.asStateFlow()
@@ -708,6 +730,26 @@ class CoreViewModel(app: Application) : AndroidViewModel(app) {
             }
             "movement_catalog" -> _movementCatalog.value = parseCatalog(e.optJSONArray("units"))
             "post_action_catalog" -> _postActionCatalog.value = parseCatalog(e.optJSONArray("actions"))
+
+            "post_info" -> {
+                val features = e.optJSONObject("features")
+                val poll = e.optJSONObject("poll")
+                _postInfo.value = PostInfoUi(
+                    id = e.optString("id"),
+                    text = e.optString("text"),
+                    hasUrl = e.optBoolean("has_url"),
+                    isMine = e.optBoolean("is_mine"),
+                    muted = e.optBoolean("muted"),
+                    favoritesCount = e.optInt("favorites_count"),
+                    boostsCount = e.optInt("boosts_count"),
+                    canQuote = features?.optBoolean("quote_posts", true) ?: true,
+                    canMuteConversation = features?.optBoolean("mute_conversations", false) ?: false,
+                    pollOptions = poll?.optJSONArray("options")?.let { arr ->
+                        (0 until arr.length()).map { arr.optString(it) }
+                    },
+                    pollMultiple = poll?.optBoolean("multiple") ?: false,
+                )
+            }
 
             "media_open" -> _media.value =
                 MediaItemUi(e.optString("url"), e.optString("kind"), e.optString("title"))
@@ -1381,6 +1423,8 @@ class CoreViewModel(app: Application) : AndroidViewModel(app) {
 
     fun openPostInfo(id: String) = core.dispatch("post_info") { put("id", id) }
 
+    fun closePostInfo() { _postInfo.value = null }
+
     /** Fill the missing posts after row [id] (a gap left by a refresh). */
     fun loadGap(id: String) = core.dispatch("load_gap") { put("id", id) }
 
@@ -1395,6 +1439,15 @@ class CoreViewModel(app: Application) : AndroidViewModel(app) {
             val o = arr.optJSONObject(i) ?: continue
             add(CatalogEntry(o.optString("key"), o.optString("label")))
         }
+    }
+
+    /** Open the post on its server's website. */
+    fun openStatusInBrowser(id: String) = core.dispatch("open_status") { put("id", id) }
+
+    /** Vote in a poll; the core reopens Post Info with the results. */
+    fun votePoll(id: String, choices: List<Int>) = core.dispatch("vote_poll") {
+        put("id", id)
+        put("choices", org.json.JSONArray(choices))
     }
 
     /** Open a user list of everyone who favorited / boosted a post (Mastodon). */

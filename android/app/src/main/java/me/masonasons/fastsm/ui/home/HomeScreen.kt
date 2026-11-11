@@ -187,6 +187,24 @@ fun HomeScreen(
                                 onClick = { menuOpen = false; onOpenAddTimeline() },
                             )
                             DropdownMenuItem(
+                                text = { Text("Refresh all timelines") },
+                                onClick = { menuOpen = false; viewModel.refreshAll() },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Undo navigation") },
+                                onClick = { menuOpen = false; viewModel.goBack() },
+                            )
+                            if (accounts.size > 1) {
+                                DropdownMenuItem(
+                                    text = { Text("Previous account") },
+                                    onClick = { menuOpen = false; viewModel.selectAccountDir("prev") },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Next account") },
+                                    onClick = { menuOpen = false; viewModel.selectAccountDir("next") },
+                                )
+                            }
+                            DropdownMenuItem(
                                 text = { Text("Find in timeline") },
                                 onClick = { menuOpen = false; showFindDialog = true },
                             )

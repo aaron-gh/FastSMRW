@@ -4,6 +4,7 @@ FastSMRW changelog
 0.6.1
 -----
 
+- New: on Android, the More menu has Refresh all timelines, Undo navigation, and Previous and Next account.
 - New: on Android, Settings, Timelines has Movement units, to choose which units Ctrl+Up and Ctrl+Down jump by and their order.
 - New: on Android, the post editor can set the post's language, add a poll and schedule the post for later.
 - New: on Android, a person's profile has Mute, Block, Hide boosts, Followers, Following and Add to list.

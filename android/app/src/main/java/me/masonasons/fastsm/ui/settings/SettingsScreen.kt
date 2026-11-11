@@ -620,14 +620,18 @@ private fun BehaviorPanel(s: JSONObject, vm: CoreViewModel) {
     ComboRow("Tap on a user", userTapOptions, s.optString("enter_user_action").ifEmpty { "actions" }) {
         vm.updateSetting { put("enter_user_action", it) }
     }
+    ComboRow("Secondary action", interactOptions, s.optString("secondary_post_action").ifEmpty { "play_media" }) {
+        vm.updateSetting { put("secondary_post_action", it) }
+    }
+    HelpText("The secondary action is Shift+Enter on a hardware keyboard.")
     SwitchRow("Put extra reply mentions at the end", s.optBoolean("reply_mentions_at_end")) {
         vm.updateSetting { put("reply_mentions_at_end", it) }
     }
     HelpText("In a reply, mention the person you're replying to up front and move the other mentioned users to the end of the post.")
 }
 
-// What tapping a post (Enter) does; keys are post-action catalog keys, labels
-// match the iPhone app.
+// What tapping a post (Enter) or the secondary action (Shift+Enter) does; keys
+// are post-action catalog keys, labels match the iPhone app.
 private val interactOptions = listOf(
     "post_info" to "View post info", "thread" to "View thread", "reply" to "Reply",
     "quote" to "Quote", "favorite" to "Favorite", "boost" to "Boost",

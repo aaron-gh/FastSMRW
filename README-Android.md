@@ -156,6 +156,51 @@ limit). You can:
   and a duration), or schedule it for a later date and time, where the server
   supports it.
 
+With a hardware keyboard, Alt+A opens the mention search, Ctrl+Enter sends (or
+inserts a new line when Return sends the post), and Escape cancels.
+
+## Keyboard shortcuts
+
+With a hardware keyboard attached, the timeline uses the same keys as the
+desktop apps. Post keys act on the focused post, or on your reading position
+when nothing has focus.
+
+Moving around:
+
+- Up / Down: previous / next post. Home / End: first / last post.
+- Left / Right: previous / next timeline. Ctrl+1 to Ctrl+9: timeline 1 to 9.
+- Shift+Up / Shift+Down: move the current timeline earlier / later.
+- Ctrl+Up / Ctrl+Down: jump by the movement unit. Ctrl+Left / Ctrl+Right:
+  choose the movement unit.
+- Shift+letter: next post starting with that letter.
+- Ctrl+Z: back to the previous position.
+- Ctrl+[ / Ctrl+]: previous / next account.
+- Escape: Back (closes a closable timeline, leaves Settings, cancels a post).
+
+On a post:
+
+- Enter: same as tapping the post. Shift+Enter: secondary action. Space: view
+  conversation.
+- R reply, Q quote, E edit, B boost, F favourite, M bookmark, P pin to profile,
+  U author's posts, D direct message, H follow hashtag, Delete: delete your post.
+- Ctrl+I post info, Ctrl+U author's profile, Ctrl+L follow or unfollow, Ctrl+O open links,
+  Ctrl+C copy, Ctrl+; speak user, Ctrl+Shift+; speak referenced reply,
+  Ctrl+Shift+N alias.
+
+Timelines and app:
+
+- Ctrl+N new post. Ctrl+R refresh, Ctrl+Shift+R refresh all. Period: load
+  older posts. A: auto-read new posts.
+- Ctrl+T add timeline or search. Ctrl+W close timeline. Ctrl+P pin tab. Ctrl+M
+  mute tab. Ctrl+Delete clear timeline, Ctrl+Shift+Delete clear all.
+- Ctrl+F find, F3 / Shift+F3 find next / previous. Ctrl+Shift+F filter.
+- Ctrl+Comma Settings, Ctrl+Shift+Comma account settings, Ctrl+Shift+A add
+  account. F1 this guide, Shift+F1 check for updates.
+
+In Settings, the Speech Details, Copy Details and Post actions lists take Space
+to turn an item on or off, Ctrl+Up / Ctrl+Down to move it, and (Speech and Copy
+Details) Ctrl+E for its extra text.
+
 ## Settings
 
 Open Settings from the overflow menu. It is organized into sections that mirror
@@ -186,8 +231,8 @@ the other versions of FastSM:
 - Advanced — how many pages of posts to fetch per load.
 - Confirmation — ask before boosting, unboosting, liking, unliking, clearing a
   timeline, blocking, unblocking, or deleting a post.
-- Behavior — what tapping a post or a person does, and putting extra reply
-  mentions at the end.
+- Behavior — what tapping a post or a person does, the secondary action
+  (Shift+Enter), and putting extra reply mentions at the end.
 - Post actions — show, hide, and reorder the per-post actions (the TalkBack
   swipe actions).
 - Updates — check for updates on startup, or check now; shows your version.

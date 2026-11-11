@@ -69,6 +69,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.runtime.mutableLongStateOf
 import me.masonasons.fastsm.ui.PollDraft
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.input.key.isAltPressed
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -289,6 +290,18 @@ fun ComposeScreen(
     }
 
     Scaffold(
+        // Ctrl+Enter sends from any field when Return doesn't send (when it does,
+        // Ctrl+Return is the post field's newline). Escape is Back (MainActivity).
+        modifier = Modifier.onPreviewKeyEvent { event ->
+            if (event.type == KeyEventType.KeyDown && !ctx.enterToSend && event.isCtrlPressed &&
+                (event.key == Key.Enter || event.key == Key.NumPadEnter)
+            ) {
+                if (!sending && canSend) send()
+                true
+            } else {
+                false
+            }
+        },
         topBar = {
             TopAppBar(
                 title = { Text(ctx.title) },
@@ -355,8 +368,13 @@ fun ComposeScreen(
                     .fillMaxWidth()
                     .focusRequester(textFocus)
                     .onPreviewKeyEvent { event ->
-                        if (event.type != KeyEventType.KeyDown ||
-                            (event.key != Key.Enter && event.key != Key.NumPadEnter)) {
+                        if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                        // Alt+A: @-mention autocomplete, as on the desktop.
+                        if (event.key == Key.A && event.isAltPressed && !event.isCtrlPressed) {
+                            if (!sending) openMention()
+                            return@onPreviewKeyEvent true
+                        }
+                        if (event.key != Key.Enter && event.key != Key.NumPadEnter) {
                             return@onPreviewKeyEvent false
                         }
                         val newlineCombo = event.isCtrlPressed || event.isShiftPressed
@@ -369,7 +387,7 @@ fun ComposeScreen(
             )
 
             TextButton(onClick = { openMention() }, enabled = !sending) {
-                Text("Mention someone")
+                Text("Mention someone (Alt+A)")
             }
 
             Text(

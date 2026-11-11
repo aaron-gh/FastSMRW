@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.view.KeyEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
@@ -40,6 +41,7 @@ import me.masonasons.fastsm.ui.HashtagPromptDialog
 import me.masonasons.fastsm.ui.UserListsDialog
 import me.masonasons.fastsm.ui.ProfileEditorDialog
 import me.masonasons.fastsm.ui.compose.ComposeScreen
+import me.masonasons.fastsm.ui.home.HomeKeys
 import me.masonasons.fastsm.ui.home.HomeScreen
 import me.masonasons.fastsm.ui.media.MediaScreen
 import me.masonasons.fastsm.ui.post.PostInfoScreen
@@ -98,6 +100,27 @@ class MainActivity : ComponentActivity() {
         // otherwise it closes audio and streams until the window is back.
         app.paused = true
         vm.pause(keepRunning = BackgroundPrefs.runInBackground(this))
+    }
+
+    // Key-downs the home-screen shortcuts consumed; their key-ups are consumed too,
+    // so a focused control never sees half a key press.
+    private val consumedKeys = mutableSetOf<Int>()
+
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (event.action == KeyEvent.ACTION_DOWN && HomeKeys.handler?.invoke(event) == true) {
+            consumedKeys += event.keyCode
+            return true
+        }
+        if (event.action == KeyEvent.ACTION_UP && consumedKeys.remove(event.keyCode)) return true
+        if (super.dispatchKeyEvent(event)) return true
+        // Escape works as Back on every screen (close compose, leave a settings
+        // page, close a timeline). With nothing to go back to it does nothing,
+        // rather than exiting the app.
+        if (event.keyCode == KeyEvent.KEYCODE_ESCAPE && onBackPressedDispatcher.hasEnabledCallbacks()) {
+            if (event.action == KeyEvent.ACTION_UP) onBackPressedDispatcher.onBackPressed()
+            return true
+        }
+        return false
     }
 
     // singleTop: the fastsm://oauth redirect re-enters the live activity here.

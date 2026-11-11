@@ -1,5 +1,10 @@
 package me.masonasons.fastsm.ui.home
 
+import android.view.KeyEvent as AndroidKeyEvent
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.withFrameNanos
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -122,6 +127,181 @@ fun HomeScreen(
     var showFollowedTags by remember { mutableStateOf(false) }
     var showServerFilters by remember { mutableStateOf(false) }
     var findText by remember { mutableStateOf("") }
+    val uriHandler = LocalUriHandler.current
+
+    // --- Hardware keyboard -------------------------------------------------
+    // The post that has keyboard focus (null when focus is elsewhere), whether
+    // anything on this screen has focus, and the latest request to move keyboard
+    // focus to a post. Shortcuts match the desktop and iPad apps (Ctrl for Cmd).
+    var focusedRowId by remember { mutableStateOf<String?>(null) }
+    var homeHasFocus by remember { mutableStateOf(false) }
+    var focusRequest by remember { mutableStateOf<FocusRequest?>(null) }
+    var focusSerial by remember { mutableLongStateOf(0L) }
+    var confirmDeleteId by remember { mutableStateOf<String?>(null) }
+
+    fun focusRow(page: Int, id: String) {
+        focusRequest = FocusRequest(page, id, ++focusSerial)
+    }
+
+    fun requestClear(all: Boolean) {
+        if (viewModel.confirmsBefore("confirm_clear_timeline", default = true)) {
+            if (all) confirmClearAll = true else confirmClear = true
+        } else if (all) {
+            viewModel.clearAllTimelines()
+        } else {
+            viewModel.clearTimeline()
+        }
+    }
+
+    fun requestDelete(row: RowUi) {
+        if (!row.isMine) return
+        if (viewModel.confirmsBefore("confirm_delete_post", default = true)) {
+            confirmDeleteId = row.id
+        } else {
+            viewModel.deletePost(row.id)
+        }
+    }
+
+    val keyHandler: (AndroidKeyEvent) -> Boolean = handler@{ e ->
+        // Overlay screens have text fields of their own; leave their keys alone.
+        if (showFilter || showLists || showFollowedTags || showServerFilters) return@handler false
+        val m = Mods.of(e)
+        val code = e.keyCode
+        val page = pagerState.currentPage
+        val rows = rowsByTab[page].orEmpty()
+        val focusedRow = focusedRowId?.takeIf { id -> rows.any { it.id == id } }
+        // Post keys apply with a post focused, or with nothing focused at all;
+        // on a tab or a toolbar button the arrows and letters keep their usual job.
+        val rowContext = focusedRow != null || !homeHasFocus
+        val cursorId = focusedRow
+            ?: selectedIdByTab[page]?.takeIf { id -> rows.any { it.id == id } }
+        val cursor = rows.firstOrNull { it.id == cursorId }
+        val boundary = {
+            if (settings?.optBoolean("boundary_sound", true) != false) viewModel.playEarcon("boundary")
+        }
+        fun onRow(run: (RowUi) -> Unit): Boolean {
+            if (cursor != null) run(cursor) else boundary()
+            return true
+        }
+        fun moveTo(index: Int): Boolean {
+            if (index !in rows.indices) { boundary(); return true }
+            viewModel.noteSelection(rows[index].id)
+            focusRow(page, rows[index].id)
+            return true
+        }
+        fun step(delta: Int): Boolean {
+            if (rows.isEmpty()) { boundary(); return true }
+            val i = rows.indexOfFirst { it.id == cursorId }
+            return moveTo(if (i < 0) (if (delta > 0) 0 else rows.lastIndex) else i + delta)
+        }
+
+        // Shortcuts that work wherever focus is on this screen.
+        when {
+            m.ctrlOnly && code == AndroidKeyEvent.KEYCODE_N -> { viewModel.composeNew(); return@handler true }
+            m.ctrlOnly && code == AndroidKeyEvent.KEYCODE_R -> { viewModel.refresh(); return@handler true }
+            m.ctrlShift && code == AndroidKeyEvent.KEYCODE_R -> { viewModel.refreshAll(); return@handler true }
+            m.ctrlOnly && code == AndroidKeyEvent.KEYCODE_T -> { onOpenAddTimeline(); return@handler true }
+            m.ctrlOnly && code == AndroidKeyEvent.KEYCODE_W -> {
+                if (tabs.getOrNull(page)?.dismissable == true) viewModel.closeTimeline(page) else boundary()
+                return@handler true
+            }
+            m.ctrlOnly && code == AndroidKeyEvent.KEYCODE_P -> { viewModel.pinTimeline(page); return@handler true }
+            m.ctrlOnly && code == AndroidKeyEvent.KEYCODE_M -> { viewModel.muteTimeline(page); return@handler true }
+            m.ctrlOnly && code == AndroidKeyEvent.KEYCODE_COMMA -> { onOpenSettings(); return@handler true }
+            m.ctrlShift && code == AndroidKeyEvent.KEYCODE_COMMA -> { onOpenAccountSettings(); return@handler true }
+            m.ctrlShift && code == AndroidKeyEvent.KEYCODE_A -> { onAddAccount(); return@handler true }
+            m.ctrlOnly && code == AndroidKeyEvent.KEYCODE_LEFT_BRACKET -> {
+                viewModel.selectAccountDir("prev"); return@handler true
+            }
+            m.ctrlOnly && code == AndroidKeyEvent.KEYCODE_RIGHT_BRACKET -> {
+                viewModel.selectAccountDir("next"); return@handler true
+            }
+            m.ctrlOnly && code == AndroidKeyEvent.KEYCODE_FORWARD_DEL -> { requestClear(all = false); return@handler true }
+            m.ctrlShift && code == AndroidKeyEvent.KEYCODE_FORWARD_DEL -> { requestClear(all = true); return@handler true }
+            m.ctrlOnly && code == AndroidKeyEvent.KEYCODE_Z -> { viewModel.goBack(); return@handler true }
+            m.ctrlOnly && code == AndroidKeyEvent.KEYCODE_F -> { showFindDialog = true; return@handler true }
+            m.ctrlShift && code == AndroidKeyEvent.KEYCODE_F -> {
+                viewModel.getClientFilter(); showFilter = true; return@handler true
+            }
+            m.none && code == AndroidKeyEvent.KEYCODE_F3 -> {
+                if (!viewModel.findNext()) showFindDialog = true
+                return@handler true
+            }
+            m.shiftOnly && code == AndroidKeyEvent.KEYCODE_F3 -> {
+                if (!viewModel.findPrevious()) showFindDialog = true
+                return@handler true
+            }
+            m.none && code == AndroidKeyEvent.KEYCODE_F1 -> {
+                uriHandler.openUri(HELP_URL); return@handler true
+            }
+            m.shiftOnly && code == AndroidKeyEvent.KEYCODE_F1 -> { viewModel.checkForUpdate(); return@handler true }
+            m.ctrlOnly && code in AndroidKeyEvent.KEYCODE_1..AndroidKeyEvent.KEYCODE_9 -> {
+                viewModel.selectTimelineNumber(code - AndroidKeyEvent.KEYCODE_0); return@handler true
+            }
+            // Ctrl shortcuts on the current post.
+            m.ctrlOnly && code == AndroidKeyEvent.KEYCODE_C -> return@handler onRow { viewModel.copyRow(it.id) }
+            m.ctrlOnly && code == AndroidKeyEvent.KEYCODE_I -> return@handler onRow { viewModel.openPostInfo(it.id) }
+            m.ctrlOnly && code == AndroidKeyEvent.KEYCODE_U -> return@handler onRow { viewModel.openUserProfile(it.id) }
+            m.ctrlOnly && code == AndroidKeyEvent.KEYCODE_L -> return@handler onRow { viewModel.followToggle(it.id) }
+            m.ctrlOnly && code == AndroidKeyEvent.KEYCODE_O -> return@handler onRow { viewModel.openPostLinks(it.id) }
+            m.ctrlOnly && code == AndroidKeyEvent.KEYCODE_SEMICOLON -> return@handler onRow { viewModel.speakUser(it.id) }
+            m.ctrlShift && code == AndroidKeyEvent.KEYCODE_SEMICOLON -> return@handler onRow { viewModel.speakReply(it.id) }
+            m.ctrlShift && code == AndroidKeyEvent.KEYCODE_N -> return@handler onRow { viewModel.beginAlias(it.id) }
+        }
+        if (!rowContext) return@handler false
+
+        // Keys on the timeline itself.
+        when {
+            m.none && code == AndroidKeyEvent.KEYCODE_DPAD_UP -> step(-1)
+            m.none && code == AndroidKeyEvent.KEYCODE_DPAD_DOWN -> step(+1)
+            m.none && code == AndroidKeyEvent.KEYCODE_MOVE_HOME -> moveTo(0)
+            m.none && code == AndroidKeyEvent.KEYCODE_MOVE_END -> moveTo(rows.lastIndex)
+            m.none && code == AndroidKeyEvent.KEYCODE_DPAD_LEFT -> { viewModel.selectTimelineDir("prev"); true }
+            m.none && code == AndroidKeyEvent.KEYCODE_DPAD_RIGHT -> { viewModel.selectTimelineDir("next"); true }
+            m.shiftOnly && code == AndroidKeyEvent.KEYCODE_DPAD_UP -> { viewModel.moveTimeline(page, "up"); true }
+            m.shiftOnly && code == AndroidKeyEvent.KEYCODE_DPAD_DOWN -> { viewModel.moveTimeline(page, "down"); true }
+            m.ctrlOnly && code == AndroidKeyEvent.KEYCODE_DPAD_UP -> { viewModel.moveByUnit("prev", cursorId); true }
+            m.ctrlOnly && code == AndroidKeyEvent.KEYCODE_DPAD_DOWN -> { viewModel.moveByUnit("next", cursorId); true }
+            m.ctrlOnly && code == AndroidKeyEvent.KEYCODE_DPAD_LEFT -> { viewModel.cycleMovement("prev"); true }
+            m.ctrlOnly && code == AndroidKeyEvent.KEYCODE_DPAD_RIGHT -> { viewModel.cycleMovement("next"); true }
+            // Enter on a focused post is its tap action (the row handles it); with
+            // nothing focused it moves focus to the current post first.
+            m.none && (code == AndroidKeyEvent.KEYCODE_ENTER || code == AndroidKeyEvent.KEYCODE_NUMPAD_ENTER) -> {
+                if (focusedRow != null) false else onRow { viewModel.interact(it.id) }
+            }
+            m.shiftOnly && (code == AndroidKeyEvent.KEYCODE_ENTER || code == AndroidKeyEvent.KEYCODE_NUMPAD_ENTER) ->
+                onRow { viewModel.performAction("SecondaryAction", it.id) }
+            m.none && code == AndroidKeyEvent.KEYCODE_SPACE -> onRow { viewModel.openThread(it.id) }
+            m.none && code == AndroidKeyEvent.KEYCODE_R -> onRow { viewModel.composeReply(it.id) }
+            m.none && code == AndroidKeyEvent.KEYCODE_B -> onRow { viewModel.toggleBoost(it.id) }
+            m.none && code == AndroidKeyEvent.KEYCODE_F -> onRow { viewModel.toggleFavorite(it.id) }
+            m.none && code == AndroidKeyEvent.KEYCODE_M -> onRow { viewModel.toggleBookmark(it.id) }
+            m.none && code == AndroidKeyEvent.KEYCODE_Q -> onRow { viewModel.composeQuote(it.id) }
+            m.none && code == AndroidKeyEvent.KEYCODE_E -> onRow { if (it.isMine) viewModel.composeEdit(it.id) }
+            m.none && code == AndroidKeyEvent.KEYCODE_U -> onRow { viewModel.openUserTimeline(it.id) }
+            m.none && code == AndroidKeyEvent.KEYCODE_D -> onRow { viewModel.messageUser(it.id) }
+            m.none && code == AndroidKeyEvent.KEYCODE_P -> onRow { viewModel.togglePinPost(it.id) }
+            m.none && code == AndroidKeyEvent.KEYCODE_H -> onRow { viewModel.performAction("follow_hashtag", it.id) }
+            m.none && code == AndroidKeyEvent.KEYCODE_A -> { viewModel.toggleAutoRead(); true }
+            m.none && code == AndroidKeyEvent.KEYCODE_PERIOD -> { viewModel.loadOlder(); true }
+            m.none && code == AndroidKeyEvent.KEYCODE_FORWARD_DEL -> onRow { requestDelete(it) }
+            // Shift+letter: the next post whose text starts with that letter.
+            m.shiftOnly && code in AndroidKeyEvent.KEYCODE_A..AndroidKeyEvent.KEYCODE_Z -> {
+                val letter = 'a' + (code - AndroidKeyEvent.KEYCODE_A)
+                val start = rows.indexOfFirst { it.id == cursorId }
+                val hit = (1..rows.size).map { (start + it).mod(rows.size) }
+                    .firstOrNull { rows[it].text.trimStart().firstOrNull()?.lowercaseChar() == letter }
+                if (hit == null) { boundary(); true } else moveTo(hit)
+            }
+            else -> false
+        }
+    }
+    val currentKeyHandler by rememberUpdatedState(keyHandler)
+    DisposableEffect(Unit) {
+        val h: (AndroidKeyEvent) -> Boolean = { currentKeyHandler(it) }
+        HomeKeys.handler = h
+        onDispose { if (HomeKeys.handler === h) HomeKeys.handler = null }
+    }
 
     // Keep the pager and the core's selected timeline in sync both ways.
     LaunchedEffect(currentTab) {
@@ -131,6 +311,23 @@ fun HomeScreen(
     }
     LaunchedEffect(pagerState.currentPage, tabs.size) {
         if (pagerState.currentPage in tabs.indices) viewModel.selectTimeline(pagerState.currentPage)
+    }
+
+    // Keyboard focus follows the reading position when the core moves it (Go Back,
+    // movement jumps, find, switching timelines) and when another timeline shows.
+    // Requests only take effect while a keyboard is in use: posts can't take
+    // focus in touch mode.
+    LaunchedEffect(scrollRequest?.serial) {
+        val req = scrollRequest ?: return@LaunchedEffect
+        if (req.tab == pagerState.currentPage) focusRow(req.tab, req.id)
+    }
+    val currentPageLoaded = !rowsByTab[pagerState.currentPage].isNullOrEmpty()
+    LaunchedEffect(pagerState.currentPage, currentPageLoaded) {
+        val page = pagerState.currentPage
+        val rows = rowsByTab[page].orEmpty()
+        val id = selectedIdByTab[page]?.takeIf { id -> rows.any { it.id == id } }
+            ?: rows.firstOrNull()?.id
+        if (id != null) focusRow(page, id)
     }
 
     // The visible tab is closable (a thread/search/user/list tab, not Home).
@@ -161,6 +358,7 @@ fun HomeScreen(
     }
 
     Scaffold(
+        modifier = Modifier.onFocusChanged { homeHasFocus = it.hasFocus },
         topBar = {
             Column {
                 TopAppBar(
@@ -177,39 +375,45 @@ fun HomeScreen(
                             Icon(Icons.Filled.Refresh, contentDescription = "Refresh")
                         }
                         var menuOpen by remember { mutableStateOf(false) }
-                        val uriHandler = LocalUriHandler.current
                         IconButton(onClick = { menuOpen = true }) {
                             Icon(Icons.Filled.MoreVert, contentDescription = "More")
                         }
                         DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                             DropdownMenuItem(
                                 text = { Text("Add timeline or search") },
+                                trailingIcon = { ShortcutHint("Ctrl+T") },
                                 onClick = { menuOpen = false; onOpenAddTimeline() },
                             )
                             DropdownMenuItem(
                                 text = { Text("Refresh all timelines") },
+                                trailingIcon = { ShortcutHint("Ctrl+Shift+R") },
                                 onClick = { menuOpen = false; viewModel.refreshAll() },
                             )
                             DropdownMenuItem(
                                 text = { Text("Undo navigation") },
+                                trailingIcon = { ShortcutHint("Ctrl+Z") },
                                 onClick = { menuOpen = false; viewModel.goBack() },
                             )
                             if (accounts.size > 1) {
                                 DropdownMenuItem(
                                     text = { Text("Previous account") },
+                                    trailingIcon = { ShortcutHint("Ctrl+[") },
                                     onClick = { menuOpen = false; viewModel.selectAccountDir("prev") },
                                 )
                                 DropdownMenuItem(
                                     text = { Text("Next account") },
+                                    trailingIcon = { ShortcutHint("Ctrl+]") },
                                     onClick = { menuOpen = false; viewModel.selectAccountDir("next") },
                                 )
                             }
                             DropdownMenuItem(
                                 text = { Text("Find in timeline") },
+                                trailingIcon = { ShortcutHint("Ctrl+F") },
                                 onClick = { menuOpen = false; showFindDialog = true },
                             )
                             DropdownMenuItem(
                                 text = { Text("Filter timeline") },
+                                trailingIcon = { ShortcutHint("Ctrl+Shift+F") },
                                 onClick = {
                                     menuOpen = false
                                     // Ask first; the screen opens when the answer lands.
@@ -219,32 +423,22 @@ fun HomeScreen(
                             )
                             DropdownMenuItem(
                                 text = { Text("Clear timeline") },
-                                onClick = {
-                                    menuOpen = false
-                                    if (viewModel.confirmsBefore("confirm_clear_timeline", default = true)) {
-                                        confirmClear = true
-                                    } else {
-                                        viewModel.clearTimeline()
-                                    }
-                                },
+                                trailingIcon = { ShortcutHint("Ctrl+Delete") },
+                                onClick = { menuOpen = false; requestClear(all = false) },
                             )
                             DropdownMenuItem(
                                 text = { Text("Clear all timelines") },
-                                onClick = {
-                                    menuOpen = false
-                                    if (viewModel.confirmsBefore("confirm_clear_timeline", default = true)) {
-                                        confirmClearAll = true
-                                    } else {
-                                        viewModel.clearAllTimelines()
-                                    }
-                                },
+                                trailingIcon = { ShortcutHint("Ctrl+Shift+Delete") },
+                                onClick = { menuOpen = false; requestClear(all = true) },
                             )
                             DropdownMenuItem(
                                 text = { Text("Find next") },
+                                trailingIcon = { ShortcutHint("F3") },
                                 onClick = { menuOpen = false; viewModel.findNext() },
                             )
                             DropdownMenuItem(
                                 text = { Text("Find previous") },
+                                trailingIcon = { ShortcutHint("Shift+F3") },
                                 onClick = { menuOpen = false; viewModel.findPrevious() },
                             )
                             DropdownMenuItem(
@@ -285,6 +479,7 @@ fun HomeScreen(
                             )
                             DropdownMenuItem(
                                 text = { Text("Auto-read new posts") },
+                                trailingIcon = { ShortcutHint("A") },
                                 onClick = { menuOpen = false; viewModel.toggleAutoRead() },
                             )
                             DropdownMenuItem(
@@ -301,15 +496,16 @@ fun HomeScreen(
                             )
                             DropdownMenuItem(
                                 text = { Text("Settings") },
+                                trailingIcon = { ShortcutHint("Ctrl+Comma") },
                                 onClick = { menuOpen = false; onOpenSettings() },
                             )
                             DropdownMenuItem(
                                 text = { Text("Help (user guide)") },
+                                trailingIcon = { ShortcutHint("F1") },
                                 onClick = {
                                     menuOpen = false
                                     // Open the Android user guide on GitHub.
-                                    uriHandler.openUri(
-                                        "https://github.com/masonasons/FastSMRW/blob/main/README-Android.md")
+                                    uriHandler.openUri(HELP_URL)
                                 },
                             )
                         }
@@ -357,6 +553,21 @@ fun HomeScreen(
                 timelineKey = tabs.getOrNull(pageIndex)
                     ?.let { "$selected/${it.kind}/${it.title}" } ?: "$pageIndex",
                 scrollRequest = scrollRequest?.takeIf { it.tab == pageIndex },
+                focusRequest = focusRequest?.takeIf { it.tab == pageIndex },
+                focusedId = focusedRowId,
+                onFocusRequestHandled = { serial ->
+                    if (focusRequest?.serial == serial) focusRequest = null
+                },
+                onRowFocusChanged = { id, focused ->
+                    if (focused) {
+                        focusedRowId = id
+                        // Moving focus onto a post (Tab, or the arrows) makes it the
+                        // reading position, as on the desktop.
+                        if (selectedIdByTab[pageIndex] != id) viewModel.noteSelection(id)
+                    } else if (focusedRowId == id) {
+                        focusedRowId = null
+                    }
+                },
                 actionOrder = postActionOrder,
                 onOpenLink = viewModel::openLink,
                 onOpenLinks = viewModel::openPostLinks,
@@ -425,6 +636,7 @@ fun HomeScreen(
                                 "profile" -> viewModel.openUserProfilePicked(req.rowId, u.id)
                                 "alias" -> viewModel.beginAliasPicked(req.rowId, u.id)
                                 "message" -> viewModel.messageUserPicked(u.id, u.acct)
+                                "follow_toggle" -> viewModel.followTogglePicked(u.id, u.acct)
                                 else -> viewModel.openUserTimelinePicked(u.id, u.acct)
                             }
                         }) {
@@ -503,6 +715,20 @@ fun HomeScreen(
                 },
             )
         }
+    }
+
+    confirmDeleteId?.let { id ->
+        AlertDialog(
+            onDismissRequest = { confirmDeleteId = null },
+            title = { Text("Delete post?") },
+            text = { Text("This permanently deletes your post.") },
+            confirmButton = {
+                TextButton(onClick = { confirmDeleteId = null; viewModel.deletePost(id) }) { Text("Delete") }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmDeleteId = null }) { Text("Cancel") }
+            },
+        )
     }
 
     if (showFindDialog) {
@@ -812,6 +1038,11 @@ private fun StatusList(
     selectedId: String,
     timelineKey: String,
     scrollRequest: CoreViewModel.ScrollRequest?,
+    focusRequest: FocusRequest?,
+    /** The post with keyboard focus, if any (it, not the top row, is the position). */
+    focusedId: String?,
+    onFocusRequestHandled: (Long) -> Unit,
+    onRowFocusChanged: (id: String, focused: Boolean) -> Unit,
     actionOrder: List<String>,
     onOpenLink: (String) -> Unit,
     onOpenLinks: (String) -> Unit,
@@ -891,6 +1122,7 @@ private fun StatusList(
     // reading their captured `rows` would report the post that used to be at an
     // index — a row the reader never chose, and sometimes one that no longer exists.
     val currentRows = rememberUpdatedState(rows)
+    val currentFocusedId = rememberUpdatedState(focusedId)
 
     // Restore the position the core remembers, once, when this tab first fills.
     // Afterwards the core's position follows what we report, so re-applying it on
@@ -931,17 +1163,43 @@ private fun StatusList(
                 // Once the reader has moved, a late-arriving remembered row must not
                 // pull them back to it.
                 restored = true
-                currentRows.value.getOrNull(listState.firstVisibleItemIndex)
-                    ?.let { onNoteSelection(it.id) }
+                // With a post focused from the keyboard, that post is the position;
+                // the scroll only brought it into view.
+                val focused = currentFocusedId.value
+                    ?.takeIf { id -> currentRows.value.any { it.id == id } }
+                if (focused != null) {
+                    onNoteSelection(focused)
+                } else {
+                    currentRows.value.getOrNull(listState.firstVisibleItemIndex)
+                        ?.let { onNoteSelection(it.id) }
+                }
             }
             wasScrolling = now
         }
+    }
+
+    // Move keyboard focus to a post: scroll it into view, then hand the row a
+    // one-shot request (cleared a couple of frames later, so a row scrolled back
+    // into view later doesn't take focus again).
+    var pendingFocus by remember(timelineKey) { mutableStateOf<FocusRequest?>(null) }
+    LaunchedEffect(focusRequest?.serial) {
+        val req = focusRequest ?: return@LaunchedEffect
+        onFocusRequestHandled(req.serial)
+        val idx = currentRows.value.indexOfFirst { it.id == req.id }
+        if (idx < 0) return@LaunchedEffect
+        if (listState.layoutInfo.visibleItemsInfo.none { it.index == idx }) listState.scrollToItem(idx)
+        pendingFocus = req
+        withFrameNanos { }
+        withFrameNanos { }
+        if (pendingFocus == req) pendingFocus = null
     }
 
     LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
         items(rows, key = { it.id }) { row ->
             StatusRow(
                 row = row,
+                focusSerial = pendingFocus?.takeIf { it.id == row.id }?.serial,
+                onRowFocusChanged = onRowFocusChanged,
                 actionOrder = actionOrder,
                 onSelect = onNoteSelection,
                 onOpenLink = onOpenLink,
@@ -1071,4 +1329,19 @@ private fun TimelineTabs(
             }
         }
     }
+}
+
+private const val HELP_URL = "https://github.com/masonasons/FastSMRW/blob/main/README-Android.md"
+
+/** A request to move keyboard focus to post [id] on timeline [tab]. */
+data class FocusRequest(val tab: Int, val id: String, val serial: Long)
+
+/** The keyboard shortcut shown beside a menu item. */
+@Composable
+private fun ShortcutHint(text: String) {
+    Text(
+        text,
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 }

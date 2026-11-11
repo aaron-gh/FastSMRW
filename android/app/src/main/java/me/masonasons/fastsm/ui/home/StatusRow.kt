@@ -12,6 +12,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -90,6 +94,10 @@ fun StatusRow(
     onPerform: (action: String, id: String) -> Unit,
     /** The row is a person, not a post. */
     isUser: Boolean = false,
+    /** Non-null asks this row to take keyboard focus (a new value each time). */
+    focusSerial: Long? = null,
+    /** This row gained or lost keyboard focus. */
+    onRowFocusChanged: (id: String, focused: Boolean) -> Unit = { _, _ -> },
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
@@ -176,7 +184,14 @@ fun StatusRow(
     }
     val shownText = row.textWithBreaks.ifEmpty { row.text }
 
+    val focusRequester = remember { FocusRequester() }
+    LaunchedEffect(focusSerial) {
+        if (focusSerial != null) runCatching { focusRequester.requestFocus() }
+    }
+
     val base = Modifier
+        .focusRequester(focusRequester)
+        .onFocusChanged { onRowFocusChanged(row.id, it.isFocused) }
         .combinedClickable(
             onClick = { onSelect(row.id); primaryOpen() },
             onLongClick = { onSelect(row.id); menuOpen = true },

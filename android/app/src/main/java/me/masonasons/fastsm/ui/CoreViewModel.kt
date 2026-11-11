@@ -1376,8 +1376,16 @@ class CoreViewModel(app: Application) : AndroidViewModel(app) {
     fun loadOlder(automatic: Boolean = false) =
         core.dispatch("load_older") { put("automatic", automatic) }
 
-    /** Report the reading position on the current timeline (persists it). */
-    fun noteSelection(id: String) = core.dispatch("note_selection") { put("id", id) }
+    /**
+     * Report the reading position on the current timeline (persists it). Kept here
+     * too, so the hardware-keyboard cursor and Find continue from where the reader
+     * actually is.
+     */
+    fun noteSelection(id: String) {
+        val tab = _currentTab.value
+        _selectedIdByTab.update { it + (tab to id) }
+        core.dispatch("note_selection") { put("id", id) }
+    }
 
     /** Move timeline [tab] to its newest post (the top, or the bottom when reversed). */
     fun jumpToNewest(tab: Int) {
@@ -1388,17 +1396,47 @@ class CoreViewModel(app: Application) : AndroidViewModel(app) {
         if (tab == _currentTab.value) core.dispatch("note_selection") { put("id", row.id) }
     }
 
+    // --- Hardware-keyboard commands (shared bindings with the desktop and iPad) ---
+
     /** Run a core action by name (perform_action), on [id] or the current row. */
     fun performAction(action: String, id: String? = null) = core.dispatch("perform_action") {
         put("action", action)
         if (!id.isNullOrBlank()) put("id", id)
     }
 
+    /** Previous/next timeline ("prev"/"next"); the core announces the one reached. */
+    fun selectTimelineDir(dir: String) = core.dispatch("select_timeline") { put("dir", dir) }
+
+    /** Go to timeline [number] (1-based). */
+    fun selectTimelineNumber(number: Int) =
+        core.dispatch("select_timeline") { put("number", number) }
+
     /** Previous/next account ("prev"/"next"). */
     fun selectAccountDir(dir: String) = core.dispatch("select_account") { put("dir", dir) }
 
+    /** Jump by the current movement unit from [fromId] ("prev"/"next"). */
+    fun moveByUnit(dir: String, fromId: String?) = core.dispatch("move") {
+        put("dir", dir)
+        if (!fromId.isNullOrBlank()) put("from_id", fromId)
+    }
+
+    /** Pick the previous/next movement unit; the core announces it. */
+    fun cycleMovement(dir: String) = core.dispatch("cycle_movement") { put("dir", dir) }
+
     /** Undo navigation: back to the previous reading position. */
     fun goBack() = core.dispatch("go_back")
+
+    fun playEarcon(name: String) = core.dispatch("play_earcon") { put("name", name) }
+
+    /** Follow or unfollow a post's author (asks which user when there are several). */
+    fun followToggle(rowId: String) = core.dispatch("follow_toggle") { put("id", rowId) }
+
+    fun followTogglePicked(accountId: String, acct: String) {
+        _userPicker.value = null
+        core.dispatch("follow_toggle") { put("account_id", accountId); put("acct", acct) }
+    }
+
+    fun togglePinPost(id: String) = core.dispatch("toggle_pin_post") { put("id", id) }
 
     // Find in timeline (client-side, mirroring the desktop apps): a case-insensitive
     // substring search over the posts' spoken text. A match moves the reading
@@ -1411,12 +1449,18 @@ class CoreViewModel(app: Application) : AndroidViewModel(app) {
         findFrom(inclusive = true, direction = 1)
     }
 
-    fun findNext() {
-        if (findQuery.isNotEmpty()) findFrom(inclusive = false, direction = 1)
+    /** Find the next match; false when there is no search yet to continue. */
+    fun findNext(): Boolean {
+        if (findQuery.isEmpty()) return false
+        findFrom(inclusive = false, direction = 1)
+        return true
     }
 
-    fun findPrevious() {
-        if (findQuery.isNotEmpty()) findFrom(inclusive = false, direction = -1)
+    /** Find the previous match; false when there is no search yet to continue. */
+    fun findPrevious(): Boolean {
+        if (findQuery.isEmpty()) return false
+        findFrom(inclusive = false, direction = -1)
+        return true
     }
 
     private fun findFrom(inclusive: Boolean, direction: Int) {

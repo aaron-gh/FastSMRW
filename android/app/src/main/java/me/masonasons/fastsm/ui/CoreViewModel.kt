@@ -1229,6 +1229,12 @@ class CoreViewModel(app: Application) : AndroidViewModel(app) {
     /** Report the reading position on the current timeline (persists it). */
     fun noteSelection(id: String) = core.dispatch("note_selection") { put("id", id) }
 
+    /** Previous/next account ("prev"/"next"). */
+    fun selectAccountDir(dir: String) = core.dispatch("select_account") { put("dir", dir) }
+
+    /** Undo navigation: back to the previous reading position. */
+    fun goBack() = core.dispatch("go_back")
+
     // Find in timeline (client-side, mirroring the desktop apps): a case-insensitive
     // substring search over the posts' spoken text. A match moves the reading
     // position there (scrolling to it) and speaks it through TalkBack; the query is

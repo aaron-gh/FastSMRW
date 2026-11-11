@@ -177,6 +177,9 @@ data class ProfileUi(
     val canMessage: Boolean = false,
 )
 
+/** A key + label pair from one of the core's catalogs (speech fields, movement units, post actions). */
+data class CatalogEntry(val key: String, val label: String)
+
 /**
  * Everything the compose screen needs, from the core's compose_context event:
  * prefill, the post being replied-to/quoted/edited, platform capabilities, and
@@ -327,6 +330,15 @@ class CoreViewModel(app: Application) : AndroidViewModel(app) {
     val mentionSuggestions: StateFlow<MentionSuggestions?> = _mentionSuggestions.asStateFlow()
 
     /** Non-null while a profile screen is open (from a user_profile event). */
+    // The core's catalogs: labels for the speech fields, movement units and post
+    // actions, so new items show up here without an app update.
+    private val _speechCatalog = MutableStateFlow<Map<String, List<CatalogEntry>>>(emptyMap())
+    val speechCatalog: StateFlow<Map<String, List<CatalogEntry>>> = _speechCatalog.asStateFlow()
+    private val _movementCatalog = MutableStateFlow<List<CatalogEntry>>(emptyList())
+    val movementCatalog: StateFlow<List<CatalogEntry>> = _movementCatalog.asStateFlow()
+    private val _postActionCatalog = MutableStateFlow<List<CatalogEntry>>(emptyList())
+    val postActionCatalog: StateFlow<List<CatalogEntry>> = _postActionCatalog.asStateFlow()
+
     private val _profile = MutableStateFlow<ProfileUi?>(null)
     val profile: StateFlow<ProfileUi?> = _profile.asStateFlow()
 
@@ -685,6 +697,15 @@ class CoreViewModel(app: Application) : AndroidViewModel(app) {
                 requested = e.optBoolean("requested"),
                 canMessage = e.optBoolean("can_message"),
             )
+
+            "speech_catalog" -> {
+                _speechCatalog.value = listOf(
+                    "status", "user", "notification", "autoread",
+                    "copy_status", "copy_user", "copy_notification",
+                ).associateWith { parseCatalog(e.optJSONArray(it)) }
+            }
+            "movement_catalog" -> _movementCatalog.value = parseCatalog(e.optJSONArray("units"))
+            "post_action_catalog" -> _postActionCatalog.value = parseCatalog(e.optJSONArray("actions"))
 
             "media_open" -> _media.value =
                 MediaItemUi(e.optString("url"), e.optString("kind"), e.optString("title"))
@@ -1354,6 +1375,19 @@ class CoreViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Fill the missing posts after row [id] (a gap left by a refresh). */
     fun loadGap(id: String) = core.dispatch("load_gap") { put("id", id) }
+
+    fun loadCatalogs() {
+        core.dispatch("get_speech_catalog")
+        core.dispatch("get_movement_catalog")
+        core.dispatch("get_post_action_catalog")
+    }
+
+    private fun parseCatalog(arr: JSONArray?): List<CatalogEntry> = buildList {
+        if (arr != null) for (i in 0 until arr.length()) {
+            val o = arr.optJSONObject(i) ?: continue
+            add(CatalogEntry(o.optString("key"), o.optString("label")))
+        }
+    }
 
     /** Open a user list of everyone who favorited / boosted a post (Mastodon). */
     fun openFavoritedBy(id: String) = core.dispatch("open_favorited_by") { put("id", id) }

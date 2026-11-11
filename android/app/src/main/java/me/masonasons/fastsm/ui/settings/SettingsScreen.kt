@@ -4,6 +4,9 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.paneTitle
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -118,7 +121,7 @@ private val notificationFieldLabels = mapOf(
     "text" to "Related post text", "time" to "Time",
 )
 
-private fun fieldLabel(list: String, field: String): String = when (list) {
+private fun fieldLabelFor(list: String, field: String): String = when (list) {
     "user", "copy_user" -> userFieldLabels
     "notification", "copy_notification" -> notificationFieldLabels
     else -> statusFieldLabels // status, autoread, copy_status
@@ -129,6 +132,10 @@ private fun fieldLabel(list: String, field: String): String = when (list) {
 fun SettingsScreen(viewModel: CoreViewModel, onClose: () -> Unit) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val soundpacks by viewModel.soundpacks.collectAsStateWithLifecycle()
+    val speechCatalog by viewModel.speechCatalog.collectAsStateWithLifecycle()
+    val postActionCatalog by viewModel.postActionCatalog.collectAsStateWithLifecycle()
+    // Labels come from the core, so fields and actions added there show up here.
+    LaunchedEffect(Unit) { viewModel.loadCatalogs() }
 
     // Two-level navigation: root category list -> a panel -> (speech) a field editor.
     var panel by remember { mutableStateOf<String?>(null) }
@@ -145,13 +152,7 @@ fun SettingsScreen(viewModel: CoreViewModel, onClose: () -> Unit) {
 
     val s = settings
     val title = when {
-        speechList == "status" -> "Posts"
-        speechList == "user" -> "Users"
-        speechList == "notification" -> "Notifications"
-        speechList == "autoread" -> "Auto-read"
-        speechList == "copy_status" -> "Copy: Posts"
-        speechList == "copy_user" -> "Copy: Users"
-        speechList == "copy_notification" -> "Copy: Notifications"
+        speechList != null -> speechListTitle(speechList!!)
         panel == "general" -> "General"
         panel == "notifications" -> "Notifications"
         panel == "timelines" -> "Timelines"
@@ -169,7 +170,7 @@ fun SettingsScreen(viewModel: CoreViewModel, onClose: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(title) },
+                title = { Text(title, modifier = Modifier.semantics { heading() }) },
                 navigationIcon = {
                     IconButton(onClick = goBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -184,11 +185,21 @@ fun SettingsScreen(viewModel: CoreViewModel, onClose: () -> Unit) {
             }
             return@Scaffold
         }
+        // Keyed by the page so each one starts scrolled to the top, and its pane
+        // title makes TalkBack announce the page that opened.
+        key(title) {
         Column(
-            modifier = Modifier.fillMaxSize().padding(pad).verticalScroll(rememberScrollState()),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(pad)
+                .verticalScroll(rememberScrollState())
+                .semantics { paneTitle = title },
         ) {
             when {
-                speechList != null -> SpeechFieldEditor(s, speechList!!, viewModel)
+                speechList != null -> SpeechFieldEditor(
+                    s, speechList!!, viewModel,
+                    speechCatalog[speechList!!].orEmpty().associate { it.key to it.label },
+                )
                 panel == "general" -> GeneralPanel(s, viewModel)
                 panel == "notifications" -> NotificationsPanel(s, viewModel)
                 panel == "timelines" -> TimelinesPanel(s, viewModel)
@@ -198,13 +209,29 @@ fun SettingsScreen(viewModel: CoreViewModel, onClose: () -> Unit) {
                 panel == "advanced" -> AdvancedPanel(s, viewModel)
                 panel == "confirmation" -> ConfirmationPanel(s, viewModel)
                 panel == "behavior" -> BehaviorPanel(s, viewModel)
-                panel == "post_actions" -> PostActionsPanel(s, viewModel)
+                panel == "post_actions" -> PostActionsPanel(
+                    s, viewModel, postActionCatalog.associate { it.key to it.label },
+                )
                 panel == "updates" -> UpdatesPanel(s, viewModel)
                 else -> RootList { panel = it }
             }
         }
+        }
     }
 }
+
+private fun speechListTitle(list: String): String = when (list) {
+    "status" -> "Speech Details — Posts"
+    "user" -> "Speech Details — Users"
+    "notification" -> "Speech Details — Notifications"
+    "autoread" -> "Speech Details — Auto-read Posts"
+    "copy_status" -> "Copy Details — Posts"
+    "copy_user" -> "Copy Details — Users"
+    "copy_notification" -> "Copy Details — Notifications"
+    else -> list
+}
+
+private fun isCopyList(list: String) = list.startsWith("copy_")
 
 @Composable
 private fun RootList(onOpen: (String) -> Unit) {
@@ -226,7 +253,7 @@ private fun RootList(onOpen: (String) -> Unit) {
             style = MaterialTheme.typography.titleLarge,
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable { onOpen(key) }
+                .clickable(role = Role.Button) { onOpen(key) }
                 .padding(horizontal = 16.dp, vertical = 16.dp),
         )
         HorizontalDivider()
@@ -363,14 +390,14 @@ private fun EarconsPanel(s: JSONObject, vm: CoreViewModel) {
 
 @Composable
 private fun SpeechPanel(s: JSONObject, vm: CoreViewModel, onConfigure: (String) -> Unit) {
-    HelpText("Choose which details the screen reader speaks, and their order, for each kind of row:")
-    ActionRow("Configure Posts…") { onConfigure("status") }
-    ActionRow("Configure Users…") { onConfigure("user") }
-    ActionRow("Configure Notifications…") { onConfigure("notification") }
-    ActionRow("Configure Auto-read…") { onConfigure("autoread") }
-    ActionRow("Copy template — Posts…") { onConfigure("copy_status") }
-    ActionRow("Copy template — Users…") { onConfigure("copy_user") }
-    ActionRow("Copy template — Notifications…") { onConfigure("copy_notification") }
+    HelpText("Details spoken for each kind of row, and their order:")
+    listOf("status", "user", "notification", "autoread").forEach { list ->
+        ActionRow("${speechListTitle(list)}…") { onConfigure(list) }
+    }
+    HelpText("Details copied to the clipboard by Copy, and their order:")
+    listOf("copy_status", "copy_user", "copy_notification").forEach { list ->
+        ActionRow("${speechListTitle(list)}…") { onConfigure(list) }
+    }
     ComboRow("Content warnings", cwOptions, s.optString("cw_mode")) {
         vm.updateSetting { put("cw_mode", it) }
     }
@@ -455,7 +482,7 @@ private fun ConfirmationPanel(s: JSONObject, vm: CoreViewModel) {
 }
 
 @Composable
-private fun PostActionsPanel(s: JSONObject, vm: CoreViewModel) {
+private fun PostActionsPanel(s: JSONObject, vm: CoreViewModel, catalogLabels: Map<String, String>) {
     val arr = s.optJSONArray("post_actions") ?: return
     val n = arr.length()
     HelpText("These are the actions TalkBack offers on a post (swipe up or down to reach them). Double-tap to show or hide an action; use its actions to move it up or down.")
@@ -463,7 +490,7 @@ private fun PostActionsPanel(s: JSONObject, vm: CoreViewModel) {
         val o = arr.getJSONObject(i)
         val action = o.optString("action")
         val enabled = o.optBoolean("enabled", true)
-        val label = postActionLabels[action] ?: action
+        val label = postActionLabels[action] ?: catalogLabels[action] ?: action
         // key(action) keeps this row's node identity stable across reordering so
         // TalkBack focus follows the moved item (matches the speech editor).
         key(action) {
@@ -505,13 +532,28 @@ private fun PostActionsPanel(s: JSONObject, vm: CoreViewModel) {
 }
 
 @Composable
-private fun SpeechFieldEditor(s: JSONObject, list: String, vm: CoreViewModel) {
+private fun SpeechFieldEditor(s: JSONObject, list: String, vm: CoreViewModel, catalogLabels: Map<String, String>) {
+    fun fieldLabel(list: String, field: String) = catalogLabels[field] ?: fieldLabelFor(list, field)
     val arr = s.optJSONObject("speech")?.optJSONArray(list) ?: return
     val n = arr.length()
     // A field currently being edited for its before/after wrap text (dialog open).
     var editing by remember { mutableStateOf<String?>(null) }
 
-    HelpText("Double-tap to toggle whether a detail is spoken; use the item's actions to move it up or down or set extra spoken text.")
+    val copy = isCopyList(list)
+    val onWord = if (copy) "copied" else "spoken"
+    val offWord = if (copy) "not copied" else "not spoken"
+    Text(
+        speechListTitle(list),
+        style = MaterialTheme.typography.titleMedium,
+        modifier = Modifier
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .semantics { heading() },
+    )
+    HelpText(
+        (if (copy) "Double-tap turns a detail on or off in the copied text. "
+        else "Double-tap turns a detail on or off in the spoken text. ") +
+            "Move it or set its extra text with its TalkBack actions."
+    )
     for (i in 0 until n) {
         val o = arr.getJSONObject(i)
         val field = o.optString("field")
@@ -525,19 +567,26 @@ private fun SpeechFieldEditor(s: JSONObject, list: String, vm: CoreViewModel) {
             // Edit extra text are custom actions. The visible switch and arrows stay
             // for touch but are hidden from TalkBack by clearAndSetSemantics.
             val actions = buildList {
-                add(CustomAccessibilityAction(if (enabled) "Do not speak this" else "Speak this") {
+                add(CustomAccessibilityAction(
+                    when {
+                        copy && enabled -> "Do not copy this"
+                        copy -> "Copy this"
+                        enabled -> "Do not speak this"
+                        else -> "Speak this"
+                    }
+                ) {
                     vm.toggleSpeechField(list, field, !enabled); true
                 })
                 if (i > 0) add(CustomAccessibilityAction("Move up") { vm.moveSpeechField(list, i, -1); true })
                 if (i < n - 1) add(CustomAccessibilityAction("Move down") { vm.moveSpeechField(list, i, +1); true })
-                add(CustomAccessibilityAction("Edit extra spoken text") { editing = field; true })
+                add(CustomAccessibilityAction("Edit extra text") { editing = field; true })
             }
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clearAndSetSemantics {
                         contentDescription =
-                            "${fieldLabel(list, field)}, ${if (enabled) "spoken" else "not spoken"}, " +
+                            "${fieldLabel(list, field)}, ${if (enabled) onWord else offWord}, " +
                                 "position ${i + 1} of $n"
                         customActions = actions
                         onClick { vm.toggleSpeechField(list, field, !enabled); true }
@@ -596,7 +645,7 @@ private fun WrapDialog(
     var noSep by remember { mutableStateOf(noSeparatorAfter) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Extra spoken text: $fieldLabel") },
+        title = { Text("Extra text: $fieldLabel") },
         text = {
             Column {
                 OutlinedTextField(
@@ -662,7 +711,7 @@ private fun ActionRow(label: String, onClick: () -> Unit) {
         color = MaterialTheme.colorScheme.primary,
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .clickable(role = Role.Button, onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 14.dp),
     )
 }

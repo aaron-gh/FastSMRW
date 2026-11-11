@@ -31,6 +31,8 @@ data class TabUi(
     val dismissable: Boolean,
     val pinned: Boolean,
     val muted: Boolean,
+    /** The rows are people (followers, search people, mutes, ...), not posts. */
+    val userList: Boolean = false,
 )
 
 /**
@@ -529,6 +531,7 @@ class CoreViewModel(app: Application) : AndroidViewModel(app) {
                                 dismissable = t.optBoolean("dismissable"),
                                 pinned = t.optBoolean("pinned"),
                                 muted = t.optBoolean("muted"),
+                                userList = t.optBoolean("user_list"),
                             )
                         )
                     }

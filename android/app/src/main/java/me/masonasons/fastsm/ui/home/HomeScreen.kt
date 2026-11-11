@@ -366,6 +366,7 @@ fun HomeScreen(
                 onSetRelationship = viewModel::setRelationship,
                 onMessageRequest = viewModel::messageRequestAction,
                 onInteract = viewModel::interact,
+                isUserList = tabs.getOrNull(pageIndex)?.userList == true,
             )
         }
     }
@@ -818,6 +819,7 @@ private fun StatusList(
     onSetRelationship: (accountId: String, action: String, acct: String) -> Unit,
     onMessageRequest: (rowId: String, accept: Boolean) -> Unit,
     onInteract: (String) -> Unit,
+    isUserList: Boolean,
 ) {
     if (rows.isEmpty()) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -929,6 +931,7 @@ private fun StatusList(
                 onSetRelationship = onSetRelationship,
                 onMessageRequest = onMessageRequest,
                 onInteract = onInteract,
+                isUser = isUserList,
             )
         }
     }

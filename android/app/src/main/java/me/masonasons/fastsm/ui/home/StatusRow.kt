@@ -43,6 +43,12 @@ private val DEFAULT_POST_ACTION_ORDER = listOf(
     "speak_reply", "jump_reply", "edit", "report", "delete",
 )
 
+// The actions that make sense on a person (a row in Followers, Search People,
+// Muted Users, ...), in the user's configured order.
+private val USER_ROW_ACTIONS = setOf(
+    "user_profile", "user_timeline", "message", "followers", "following", "alias", "copy", "speak_user",
+)
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun StatusRow(
@@ -80,6 +86,8 @@ fun StatusRow(
     onMessageRequest: (rowId: String, accept: Boolean) -> Unit,
     /** The interact action (tap, Enter), resolved by the core from Behavior settings. */
     onInteract: (String) -> Unit,
+    /** The row is a person, not a post. */
+    isUser: Boolean = false,
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
@@ -92,6 +100,7 @@ fun StatusRow(
     // and the long-press menu). Falls back to the default order until settings
     // arrive.
     val order = actionOrder.ifEmpty { DEFAULT_POST_ACTION_ORDER }
+        .let { keys -> if (isUser) keys.filter { it in USER_ROW_ACTIONS } else keys }
     val menuActions = buildList {
         order.forEach { key ->
             if (key == "expand_links") {
@@ -122,8 +131,8 @@ fun StatusRow(
                     if (row.boostsCount > 0) MenuAction("See who boosted") { onOpenRebloggedBy(row.id) } else null
                 "copy" -> MenuAction("Copy") { onCopy(row.id) }
                 "report" -> MenuAction("Report post") { showReport = true }
-                "user_timeline" -> MenuAction("View author's posts") { onOpenAuthor(row.id) }
-                "user_profile" -> MenuAction("View author's profile") { onOpenProfile(row.id) }
+                "user_timeline" -> MenuAction(if (isUser) "View posts" else "View author's posts") { onOpenAuthor(row.id) }
+                "user_profile" -> MenuAction(if (isUser) "View profile" else "View author's profile") { onOpenProfile(row.id) }
                 "message" -> MenuAction("Send a direct message") { onMessageUser(row.id) }
                 "speak_user" -> MenuAction("Speak user info") { onSpeakUser(row.id) }
                 "alias" -> MenuAction("Add or edit alias") { onAddAlias(row.id) }

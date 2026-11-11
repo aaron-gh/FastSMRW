@@ -4,6 +4,7 @@ FastSMRW changelog
 0.6.1
 -----
 
+- New: on Android, posts offer Open in browser, the author's Followers and Following, Follow hashtag and Pin to profile.
 - Fixed: on Android, people in Followers, Following, Search People and similar lists now open their profile when tapped and offer person actions instead of post actions.
 - New: on Android, tapping a post or a person now does what you choose under Settings, Behavior (Post Info by default), as on iPhone.
 - New: on Android, Post Info (in a post's actions) shows the whole post, including the text behind a content warning, with its actions and poll voting.

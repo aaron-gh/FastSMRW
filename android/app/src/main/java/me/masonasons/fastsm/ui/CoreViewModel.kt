@@ -335,6 +335,10 @@ class CoreViewModel(app: Application) : AndroidViewModel(app) {
     val mentionSuggestions: StateFlow<MentionSuggestions?> = _mentionSuggestions.asStateFlow()
 
     /** Non-null while a profile screen is open (from a user_profile event). */
+    /** Follow hashtag: the post's hashtags to offer (empty: type one). */
+    private val _hashtagPrompt = MutableStateFlow<List<String>?>(null)
+    val hashtagPrompt: StateFlow<List<String>?> = _hashtagPrompt.asStateFlow()
+
     private val _postInfo = MutableStateFlow<PostInfoUi?>(null)
     val postInfo: StateFlow<PostInfoUi?> = _postInfo.asStateFlow()
 
@@ -693,6 +697,13 @@ class CoreViewModel(app: Application) : AndroidViewModel(app) {
                 requested = e.optBoolean("requested"),
                 canMessage = e.optBoolean("can_message"),
             )
+
+            "hashtag_prompt" -> {
+                val arr = e.optJSONArray("tags")
+                _hashtagPrompt.value = buildList {
+                    if (arr != null) for (i in 0 until arr.length()) add(arr.optString(i))
+                }
+            }
 
             // Tap on a person with "Tap on a user" set to User actions: the profile
             // screen holds every action for a person (as on the Mac).
@@ -1387,6 +1398,8 @@ class CoreViewModel(app: Application) : AndroidViewModel(app) {
 
     /** The interact action (tap / Enter): the core resolves it from Behavior settings. */
     fun interact(id: String) = performAction("Enter", id)
+
+    fun dismissHashtagPrompt() { _hashtagPrompt.value = null }
 
     /** Open the post on its server's website. */
     fun openStatusInBrowser(id: String) = core.dispatch("open_status") { put("id", id) }

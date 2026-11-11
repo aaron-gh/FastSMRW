@@ -81,6 +81,8 @@ in what order in Settings, under Post actions. Available actions include:
 - Add or edit an alias (a custom name) for the author.
 - Speak the referenced reply, or jump to it (when the post is a reply).
 - Edit or Delete (your own posts only; Delete asks you to confirm).
+- Open in browser, the author's Followers and Following, Follow hashtag (when the
+  post has hashtags), Pin to profile (your own posts).
 - Expand links: when turned on, each link in the post becomes its own action,
   labeled by the link's title.
 

@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import me.masonasons.fastsm.push.FastSmMessagingService
 import me.masonasons.fastsm.ui.CoreViewModel
+import me.masonasons.fastsm.ui.HashtagPromptDialog
 import me.masonasons.fastsm.ui.ProfileEditorDialog
 import me.masonasons.fastsm.ui.compose.ComposeScreen
 import me.masonasons.fastsm.ui.home.HomeScreen
@@ -100,6 +101,7 @@ private fun App(vm: CoreViewModel) {
     val composeContext by vm.composeContext.collectAsStateWithLifecycle()
     val profile by vm.profile.collectAsStateWithLifecycle()
     val postInfo by vm.postInfo.collectAsStateWithLifecycle()
+    val hashtagPrompt by vm.hashtagPrompt.collectAsStateWithLifecycle()
     val media by vm.media.collectAsStateWithLifecycle()
     val appUpdate by vm.appUpdate.collectAsStateWithLifecycle()
     val profileEditor by vm.profileEditor.collectAsStateWithLifecycle()
@@ -180,6 +182,9 @@ private fun App(vm: CoreViewModel) {
             onEditProfile = { vm.openProfileEditor() },
         )
     }
+
+    // Follow Hashtag, over whatever screen asked for it.
+    hashtagPrompt?.let { HashtagPromptDialog(vm, it) }
 
     // Edit Profile dialog, shown over whatever screen is active.
     profileEditor?.let { editor ->

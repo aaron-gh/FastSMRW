@@ -159,8 +159,9 @@ the other versions of FastSM:
 - Audio — play sounds, choose a soundpack, volume, and the boundary sound.
 - Earcons — per-type sounds for images, media, mentions, pinned posts, and
   polls.
-- Speech — what is spoken, and in what order, for posts, users, notifications,
-  and auto-read; the copy templates; content-warning handling; emoji removal;
+- Speech — Speech Details (what is spoken, and in what order) for posts, users,
+  notifications, and auto-read; Copy Details (what Copy puts on the clipboard)
+  for posts, users and notifications; content-warning handling; emoji removal;
   how many usernames to read in a post; absolute or relative times; and the
   separator text.
 - Advanced — how many pages of posts to fetch per load.

@@ -252,6 +252,9 @@ class CoreViewModel(app: Application) : AndroidViewModel(app) {
     private val _selectedIdByTab = MutableStateFlow<Map<Int, String>>(emptyMap())
     val selectedIdByTab: StateFlow<Map<Int, String>> = _selectedIdByTab.asStateFlow()
 
+    // Tabs shown newest-at-the-bottom (Reverse order setting, time-ordered feeds).
+    private val reversedByTab = java.util.concurrent.ConcurrentHashMap<Int, Boolean>()
+
     /**
      * A one-shot "move to this row" from the core (a marker restore, Go Back, jump
      * to a reply's parent, a find hit). The serial makes repeats distinct so the
@@ -568,6 +571,7 @@ class CoreViewModel(app: Application) : AndroidViewModel(app) {
                         )
                     }
                 }
+                reversedByTab[index] = e.optBoolean("reversed")
                 _rowsByTab.update { it + (index to rows) }
                 _selectedIdByTab.update { it + (index to e.optString("selected_id")) }
             }
@@ -1241,6 +1245,15 @@ class CoreViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Report the reading position on the current timeline (persists it). */
     fun noteSelection(id: String) = core.dispatch("note_selection") { put("id", id) }
+
+    /** Move timeline [tab] to its newest post (the top, or the bottom when reversed). */
+    fun jumpToNewest(tab: Int) {
+        val rows = _rowsByTab.value[tab].orEmpty()
+        val row = (if (reversedByTab[tab] == true) rows.lastOrNull() else rows.firstOrNull()) ?: return
+        _selectedIdByTab.update { it + (tab to row.id) }
+        requestScroll(tab, row.id)
+        if (tab == _currentTab.value) core.dispatch("note_selection") { put("id", row.id) }
+    }
 
     // Find in timeline (client-side, mirroring the desktop apps): a case-insensitive
     // substring search over the posts' spoken text. A match moves the reading

@@ -121,6 +121,7 @@ android {
 
     buildFeatures {
         compose = true
+        aidl = true // SandFly's speech service (ISpeechControl)
     }
 }
 

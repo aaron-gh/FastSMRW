@@ -35,6 +35,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -58,6 +59,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import me.masonasons.fastsm.core.FastSmCore
 import me.masonasons.fastsm.background.BackgroundPrefs
 import me.masonasons.fastsm.background.BackgroundService
+import me.masonasons.fastsm.background.BackgroundSpeech
+import me.masonasons.fastsm.background.SandflySpeech
 import me.masonasons.fastsm.push.PushManager
 import me.masonasons.fastsm.ui.CoreViewModel
 import org.json.JSONObject
@@ -296,12 +299,24 @@ private fun NotificationsPanel(s: JSONObject, vm: CoreViewModel) {
 
 /**
  * Background (Android only): keep running with a notification after the window
- * closes. A device-side preference (BackgroundPrefs), not a core setting.
+ * closes, and read auto-read posts aloud with text-to-speech meanwhile. These are
+ * device-side preferences (BackgroundPrefs), not core settings.
  */
 @Composable
 private fun BackgroundPanel() {
     val context = LocalContext.current
     var run by remember { mutableStateOf(BackgroundPrefs.runInBackground(context)) }
+    var read by remember { mutableStateOf(BackgroundPrefs.readInBackground(context)) }
+    var engine by remember { mutableStateOf(BackgroundPrefs.ttsEngine(context)) }
+    var output by remember { mutableStateOf(BackgroundPrefs.speechOutput(context)) }
+    val sandflyInstalled = remember { SandflySpeech.isInstalled(context) }
+    var engines by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
+    LaunchedEffect(Unit) { BackgroundSpeech.engines(context) { engines = it } }
+
+    // Speech instances for Test speech.
+    var tester by remember { mutableStateOf<BackgroundSpeech?>(null) }
+    val sandflyTester = remember { SandflySpeech(context) }
+    DisposableEffect(Unit) { onDispose { tester?.shutdown(); sandflyTester.shutdown() } }
 
     fun setRun(on: Boolean) {
         run = on
@@ -326,6 +341,61 @@ private fun BackgroundPanel() {
         "Keeps FastSMRW running after you leave it, with a notification, so timelines " +
             "stay live and sounds play. Stop it from the notification or here."
     )
+    SwitchRow("Read new posts in the background", read) { on ->
+        read = on
+        BackgroundPrefs.setReadInBackground(context, on)
+        BackgroundService.sync(context)
+    }
+    HelpText(
+        "Speaks new posts in timelines with Auto-read on while FastSMRW is not on screen. " +
+            "Keeps the phone awake while running in the background, which uses more battery."
+    )
+    if (sandflyInstalled) {
+        ComboRow(
+            "Speak with",
+            listOf(
+                BackgroundPrefs.OUTPUT_SANDFLY to "SandFly",
+                BackgroundPrefs.OUTPUT_TTS to "Text-to-speech",
+            ),
+            output,
+        ) { picked ->
+            output = picked
+            BackgroundPrefs.setSpeechOutput(context, picked)
+            BackgroundService.sync(context)
+        }
+        HelpText(
+            "SandFly speaks in your SandFly voice. Turn on Apps, Let other apps speak in " +
+                "SandFly, then allow FastSMRW from the notification SandFly shows after Test " +
+                "speech. " +
+                if (SandflySpeech.speaksWhileLocked(context)) {
+                    "To hear posts while the phone is locked, also allow FastSMRW while the " +
+                        "device is locked: SandFly asks the first time, or use FastSMRW's switch " +
+                        "in Let other apps speak."
+                } else {
+                    "This version of SandFly doesn't speak for other apps while the phone is " +
+                        "locked, so text-to-speech reads then."
+                }
+        )
+    }
+    ComboRow(
+        "Text-to-speech engine",
+        listOf("" to "System default") + engines,
+        engine,
+    ) { picked ->
+        engine = picked
+        BackgroundPrefs.setTtsEngine(context, picked)
+        tester?.shutdown()
+        tester = null
+        BackgroundService.sync(context)
+    }
+    ActionRow("Test speech") {
+        if (sandflyInstalled && output == BackgroundPrefs.OUTPUT_SANDFLY) {
+            sandflyTester.speak("FastSMRW background speech.")
+        } else {
+            val t = tester ?: BackgroundSpeech(context, engine).also { tester = it }
+            t.speak("FastSMRW background speech.")
+        }
+    }
 }
 
 @Composable

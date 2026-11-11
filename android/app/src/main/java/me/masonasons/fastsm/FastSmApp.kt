@@ -2,13 +2,14 @@ package me.masonasons.fastsm
 
 import android.app.Application
 import me.masonasons.fastsm.core.FastSmCore
+import org.json.JSONObject
 import java.util.concurrent.CopyOnWriteArrayList
 
 /**
  * Owns the process's one core session. It lives here, not in the screen's view
  * model, so it outlives the window: with "Run in the background" on, the app can
- * be closed (or swiped away) and the core keeps streaming and playing sounds, and
- * a reopened window reattaches to the same session.
+ * be closed (or swiped away) and the core keeps streaming, playing sounds and
+ * auto-reading, and a reopened window reattaches to the same session.
  *
  * Core events fan out to every attached listener (the view model while a window
  * exists, the background service while it runs). They arrive on the core's thread.
@@ -61,5 +62,9 @@ class FastSmApp : Application() {
     companion object {
         fun of(context: android.content.Context): FastSmApp =
             context.applicationContext as FastSmApp
+
+        /** True when [e] is an auto-read announcement (new posts to speak). */
+        fun isAutoRead(e: JSONObject) =
+            e.optString("event") == "announce" && e.optBoolean("auto_read")
     }
 }

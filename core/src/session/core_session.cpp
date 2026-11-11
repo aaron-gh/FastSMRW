@@ -5034,8 +5034,13 @@ std::unique_ptr<TimelineController> CoreSession::make_controller(SocialAccount* 
             return;
         // Above a handful at once, summarize rather than reading each (Python parity).
         constexpr size_t kReadThreshold = 4;
+        // Marked as auto-read, so a front end can voice these differently from
+        // status messages (Android speaks them with text-to-speech in the background).
+        auto announce_read = [this](const std::string& text) {
+            emit({{"event", "announce"}, {"message", text}, {"auto_read", true}});
+        };
         if (items.size() >= kReadThreshold) {
-            emit_announce(std::to_string(items.size()) + " new in " + p->source().title());
+            announce_read(std::to_string(items.size()) + " new in " + p->source().title());
             return;
         }
         // items arrive newest-first; read them oldest-first so they flow in order.
@@ -5050,7 +5055,7 @@ std::unique_ptr<TimelineController> CoreSession::make_controller(SocialAccount* 
             speech += s;
         }
         if (!speech.empty())
-            emit_announce(speech);
+            announce_read(speech);
     };
     // Home-position sync: any user-initiated move (GUI, invisible interface,
     // movement units, first-letter jumps — every path routes through

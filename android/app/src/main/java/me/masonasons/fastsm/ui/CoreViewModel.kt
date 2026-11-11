@@ -810,7 +810,11 @@ class CoreViewModel(app: Application) : AndroidViewModel(app) {
                 }
             }
 
-            "announce" -> _announcements.tryEmit(e.optString("message"))
+            // Auto-read posts with no window on screen are the background service's
+            // to speak (text-to-speech); the screen reader reads everything else.
+            "announce" -> if (!(FastSmApp.isAutoRead(e) && !fastSmApp.inForeground)) {
+                _announcements.tryEmit(e.optString("message"))
+            }
             "copy_to_clipboard" -> _copyText.tryEmit(e.optString("text"))
             "open_url" -> _openUrls.tryEmit(e.optString("url"))
 

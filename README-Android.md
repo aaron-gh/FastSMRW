@@ -155,7 +155,8 @@ the other versions of FastSM:
 - Notifications — turn push notifications on or off (Mastodon).
 - Timelines — cache size, auto-refresh interval, real-time streaming (Mastodon),
   tab-bar position, showing mentions in Notifications, reversing timelines,
-  auto-loading older posts, and syncing your Home reading position (Mastodon).
+  auto-loading older posts, syncing your Home reading position (Mastodon), and
+  the movement units Ctrl+Up and Ctrl+Down jump by.
 - Audio — play sounds, choose a soundpack, volume, and the boundary sound.
 - Earcons — per-type sounds for images, media, mentions, pinned posts, and
   polls.

@@ -4,6 +4,7 @@ FastSMRW changelog
 0.6.1
 -----
 
+- Fixed: on Android, the Speech Details, Copy Details and Post actions lists can be used from a keyboard (Space toggles, Ctrl+Up and Ctrl+Down move), and the volume slider saves when changed with the arrow keys.
 - Fixed: on Android, the copy and speech field settings now say which template you are editing (for example "Copy Details — Posts"), TalkBack announces each settings page as it opens, and copy fields say "copied" instead of "spoken".
 - Fixed: on Android, the reply recipients in the post editor, and the checkboxes in the Report and Edit Profile dialogs, now read their names and can be checked with TalkBack.
 - Fixed: on Android, the visibility choices in the post editor can now be selected; TalkBack read them as plain text before.

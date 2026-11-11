@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import me.masonasons.fastsm.push.FastSmMessagingService
 import me.masonasons.fastsm.ui.CoreViewModel
+import me.masonasons.fastsm.ui.UserListsDialog
 import me.masonasons.fastsm.ui.ProfileEditorDialog
 import me.masonasons.fastsm.ui.compose.ComposeScreen
 import me.masonasons.fastsm.ui.home.HomeScreen
@@ -98,6 +99,7 @@ private fun App(vm: CoreViewModel) {
     val accounts by vm.accounts.collectAsStateWithLifecycle()
     val composeContext by vm.composeContext.collectAsStateWithLifecycle()
     val profile by vm.profile.collectAsStateWithLifecycle()
+    val userLists by vm.userLists.collectAsStateWithLifecycle()
     val media by vm.media.collectAsStateWithLifecycle()
     val appUpdate by vm.appUpdate.collectAsStateWithLifecycle()
     val profileEditor by vm.profileEditor.collectAsStateWithLifecycle()
@@ -172,6 +174,9 @@ private fun App(vm: CoreViewModel) {
             onEditProfile = { vm.openProfileEditor() },
         )
     }
+
+    // Add to List, over whatever screen asked for it.
+    userLists?.let { UserListsDialog(vm, it) }
 
     // Edit Profile dialog, shown over whatever screen is active.
     profileEditor?.let { editor ->

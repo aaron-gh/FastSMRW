@@ -66,7 +66,9 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
@@ -385,24 +387,31 @@ fun ComposeScreen(
             }
 
             if (ctx.participants.isNotEmpty()) {
-                Text("Recipients", style = MaterialTheme.typography.labelLarge)
+                Text(
+                    "Recipients",
+                    style = MaterialTheme.typography.labelLarge,
+                    modifier = Modifier.semantics { heading() },
+                )
                 ctx.participants.forEach { p ->
                     val isChecked = checked[p.acct] == true
                     Row(
                         verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clearAndSetSemantics {
-                                contentDescription =
-                                    "@${p.acct}${if (isChecked) ", included" else ", not included"}"
-                            },
+                            .toggleable(
+                                value = isChecked,
+                                enabled = !sending,
+                                role = Role.Checkbox,
+                                onValueChange = { checked[p.acct] = it },
+                            )
+                            .padding(vertical = 4.dp),
                     ) {
-                        Checkbox(
-                            checked = isChecked,
-                            onCheckedChange = { checked[p.acct] = it },
-                            enabled = !sending,
+                        Checkbox(checked = isChecked, onCheckedChange = null, enabled = !sending)
+                        Text(
+                            "@${p.acct}",
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier.padding(start = 8.dp),
                         )
-                        Text("@${p.acct}", style = MaterialTheme.typography.bodyLarge)
                     }
                 }
             }

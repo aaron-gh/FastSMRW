@@ -18,6 +18,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.unit.dp
 
 private val reportCategories = listOf(
     "spam" to "It's spam",
@@ -51,10 +55,15 @@ fun ReportDialog(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .selectable(selected = category == token, onClick = { category = token }),
+                            .selectable(
+                                selected = category == token,
+                                role = Role.RadioButton,
+                                onClick = { category = token },
+                            )
+                            .padding(vertical = 4.dp),
                     ) {
-                        RadioButton(selected = category == token, onClick = { category = token })
-                        Text(label)
+                        RadioButton(selected = category == token, onClick = null)
+                        Text(label, modifier = Modifier.padding(start = 8.dp))
                     }
                 }
                 OutlinedTextField(
@@ -63,9 +72,15 @@ fun ReportDialog(
                     label = { Text("Additional details (optional)") },
                     modifier = Modifier.fillMaxWidth(),
                 )
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(checked = forward, onCheckedChange = { forward = it })
-                    Text("Forward to the user's home server")
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .toggleable(value = forward, role = Role.Checkbox, onValueChange = { forward = it })
+                        .padding(vertical = 4.dp),
+                ) {
+                    Checkbox(checked = forward, onCheckedChange = null)
+                    Text("Forward to the user's home server", modifier = Modifier.padding(start = 8.dp))
                 }
             }
         },

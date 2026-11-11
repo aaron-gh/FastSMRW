@@ -32,6 +32,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import me.masonasons.fastsm.background.BackgroundPrefs
+import me.masonasons.fastsm.background.BackgroundService
 import me.masonasons.fastsm.push.FastSmMessagingService
 import me.masonasons.fastsm.ui.CoreViewModel
 import me.masonasons.fastsm.ui.ProfileEditorDialog
@@ -69,27 +71,30 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        val app = FastSmApp.of(this)
+        app.inForeground = true
+        // Start (or stop) the background service to match the setting; it can only
+        // be started while a window is on screen.
+        BackgroundService.sync(this)
         // Coming back from a pause: reopen what it closed, refresh, and pull a
         // position moved on another client. Startup does its own loading.
-        if (paused) {
-            paused = false
+        if (app.paused) {
+            app.paused = false
             vm.resume()
         }
     }
 
     override fun onPause() {
         super.onPause()
+        val app = FastSmApp.of(this)
+        app.inForeground = false
         // Folding or unfolding rebuilds the window; that isn't leaving the app.
         if (isChangingConfigurations) return
         // Android can kill a backgrounded process at any time, so send the reading
-        // position now. The core also closes audio and streams until the window is back.
-        paused = true
-        vm.pause()
-    }
-
-    companion object {
-        // Per process, not per window: a window rebuilt while paused still resumes.
-        private var paused = false
+        // position now. With Run in the background on, the core stays live;
+        // otherwise it closes audio and streams until the window is back.
+        app.paused = true
+        vm.pause(keepRunning = BackgroundPrefs.runInBackground(this))
     }
 
     // singleTop: the fastsm://oauth redirect re-enters the live activity here.

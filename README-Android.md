@@ -153,6 +153,8 @@ the other versions of FastSM:
 
 - General — whether the Return key sends the post.
 - Notifications — turn push notifications on or off (Mastodon).
+- Background — Run in the background (FastSMRW keeps running after you leave it,
+  with a notification that has a Stop button).
 - Timelines — cache size, auto-refresh interval, real-time streaming (Mastodon),
   tab-bar position, showing mentions in Notifications, reversing timelines,
   auto-loading older posts, and syncing your Home reading position (Mastodon).

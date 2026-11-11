@@ -69,6 +69,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import me.masonasons.fastsm.core.FastSmCore
+import me.masonasons.fastsm.background.BackgroundPrefs
+import me.masonasons.fastsm.background.BackgroundService
 import me.masonasons.fastsm.push.PushManager
 import me.masonasons.fastsm.ui.CoreViewModel
 import org.json.JSONObject
@@ -165,6 +167,7 @@ fun SettingsScreen(viewModel: CoreViewModel, onClose: () -> Unit) {
         speechList != null -> speechListTitle(speechList!!)
         panel == "general" -> "General"
         panel == "notifications" -> "Notifications"
+        panel == "background" -> "Background"
         panel == "timelines" -> "Timelines"
         panel == "audio" -> "Audio"
         panel == "earcons" -> "Earcons"
@@ -212,6 +215,7 @@ fun SettingsScreen(viewModel: CoreViewModel, onClose: () -> Unit) {
                 )
                 panel == "general" -> GeneralPanel(s, viewModel)
                 panel == "notifications" -> NotificationsPanel(s, viewModel)
+                panel == "background" -> BackgroundPanel()
                 panel == "timelines" -> TimelinesPanel(s, viewModel)
                 panel == "audio" -> AudioPanel(s, soundpacks, viewModel)
                 panel == "earcons" -> EarconsPanel(s, viewModel)
@@ -248,6 +252,7 @@ private fun RootList(onOpen: (String) -> Unit) {
     listOf(
         "general" to "General",
         "notifications" to "Notifications",
+        "background" to "Background",
         "timelines" to "Timelines",
         "audio" to "Audio",
         "earcons" to "Earcons",
@@ -324,6 +329,40 @@ private fun NotificationsPanel(s: JSONObject, vm: CoreViewModel) {
 			vm.setPushAlert(key, on)
 		}
 	}
+}
+
+/**
+ * Background (Android only): keep running with a notification after the window
+ * closes. A device-side preference (BackgroundPrefs), not a core setting.
+ */
+@Composable
+private fun BackgroundPanel() {
+    val context = LocalContext.current
+    var run by remember { mutableStateOf(BackgroundPrefs.runInBackground(context)) }
+
+    fun setRun(on: Boolean) {
+        run = on
+        BackgroundPrefs.setRunInBackground(context, on)
+        BackgroundService.sync(context)
+    }
+    // The running notification needs permission on Android 13 and later; the
+    // service runs without it, but the notification (and its Stop) stays hidden.
+    val askPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { setRun(true) }
+
+    SwitchRow("Run in the background", run) { on ->
+        val permission = PushManager.notificationPermission()
+        if (on && permission != null && !PushManager.hasNotificationPermission(context)) {
+            askPermission.launch(permission)
+        } else {
+            setRun(on)
+        }
+    }
+    HelpText(
+        "Keeps FastSMRW running after you leave it, with a notification, so timelines " +
+            "stay live and sounds play. Stop it from the notification or here."
+    )
 }
 
 @Composable

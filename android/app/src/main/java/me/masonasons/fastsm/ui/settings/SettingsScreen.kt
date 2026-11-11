@@ -4,9 +4,19 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
+import kotlinx.coroutines.delay
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -485,7 +495,7 @@ private fun ConfirmationPanel(s: JSONObject, vm: CoreViewModel) {
 private fun PostActionsPanel(s: JSONObject, vm: CoreViewModel, catalogLabels: Map<String, String>) {
     val arr = s.optJSONArray("post_actions") ?: return
     val n = arr.length()
-    HelpText("These are the actions TalkBack offers on a post (swipe up or down to reach them). Double-tap to show or hide an action; use its actions to move it up or down.")
+    HelpText("The actions offered on a post (TalkBack actions and the long-press menu). Double-tap or Space shows or hides an action. Move it with its TalkBack actions, the arrow buttons, or Ctrl+Up and Ctrl+Down.")
     for (i in 0 until n) {
         val o = arr.getJSONObject(i)
         val action = o.optString("action")
@@ -504,6 +514,12 @@ private fun PostActionsPanel(s: JSONObject, vm: CoreViewModel, catalogLabels: Ma
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .reorderRowKeys(
+                        onToggle = { vm.togglePostAction(i, !enabled) },
+                        onMove = { delta ->
+                            if (i + delta in 0 until n) vm.movePostAction(i, delta)
+                        },
+                    )
                     .clearAndSetSemantics {
                         contentDescription =
                             "$label, ${if (enabled) "shown" else "hidden"}, position ${i + 1} of $n"
@@ -513,16 +529,28 @@ private fun PostActionsPanel(s: JSONObject, vm: CoreViewModel, catalogLabels: Ma
                     .padding(start = 16.dp, top = 4.dp, end = 4.dp, bottom = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Switch(checked = enabled, onCheckedChange = { vm.togglePostAction(i, it) })
+                Switch(
+                    checked = enabled,
+                    onCheckedChange = { vm.togglePostAction(i, it) },
+                    modifier = Modifier.focusProperties { canFocus = false },
+                )
                 Text(
                     label,
                     style = MaterialTheme.typography.bodyLarge,
                     modifier = Modifier.weight(1f).padding(start = 8.dp),
                 )
-                IconButton(onClick = { vm.movePostAction(i, -1) }, enabled = i > 0) {
+                IconButton(
+                    onClick = { vm.movePostAction(i, -1) },
+                    enabled = i > 0,
+                    modifier = Modifier.focusProperties { canFocus = false },
+                ) {
                     Icon(Icons.Filled.KeyboardArrowUp, contentDescription = null)
                 }
-                IconButton(onClick = { vm.movePostAction(i, +1) }, enabled = i < n - 1) {
+                IconButton(
+                    onClick = { vm.movePostAction(i, +1) },
+                    enabled = i < n - 1,
+                    modifier = Modifier.focusProperties { canFocus = false },
+                ) {
                     Icon(Icons.Filled.KeyboardArrowDown, contentDescription = null)
                 }
             }
@@ -550,9 +578,10 @@ private fun SpeechFieldEditor(s: JSONObject, list: String, vm: CoreViewModel, ca
             .semantics { heading() },
     )
     HelpText(
-        (if (copy) "Double-tap turns a detail on or off in the copied text. "
-        else "Double-tap turns a detail on or off in the spoken text. ") +
-            "Move it or set its extra text with its TalkBack actions."
+        (if (copy) "Double-tap or Space turns a detail on or off in the copied text. "
+        else "Double-tap or Space turns a detail on or off in the spoken text. ") +
+            "Move it with its TalkBack actions, the arrow buttons, or Ctrl+Up and Ctrl+Down. " +
+            "Extra text: the TalkBack action, the edit button, or Ctrl+E."
     )
     for (i in 0 until n) {
         val o = arr.getJSONObject(i)
@@ -584,6 +613,13 @@ private fun SpeechFieldEditor(s: JSONObject, list: String, vm: CoreViewModel, ca
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .reorderRowKeys(
+                        onToggle = { vm.toggleSpeechField(list, field, !enabled) },
+                        onMove = { delta ->
+                            if (i + delta in 0 until n) vm.moveSpeechField(list, i, delta)
+                        },
+                        onEdit = { editing = field },
+                    )
                     .clearAndSetSemantics {
                         contentDescription =
                             "${fieldLabel(list, field)}, ${if (enabled) onWord else offWord}, " +
@@ -597,17 +633,32 @@ private fun SpeechFieldEditor(s: JSONObject, list: String, vm: CoreViewModel, ca
                 Switch(
                     checked = enabled,
                     onCheckedChange = { vm.toggleSpeechField(list, field, it) },
+                    modifier = Modifier.focusProperties { canFocus = false },
                 )
                 Text(
                     fieldLabel(list, field),
                     style = MaterialTheme.typography.bodyLarge,
                     modifier = Modifier.weight(1f).padding(start = 8.dp),
                 )
-                IconButton(onClick = { vm.moveSpeechField(list, i, -1) }, enabled = i > 0) {
+                IconButton(
+                    onClick = { vm.moveSpeechField(list, i, -1) },
+                    enabled = i > 0,
+                    modifier = Modifier.focusProperties { canFocus = false },
+                ) {
                     Icon(Icons.Filled.KeyboardArrowUp, contentDescription = null)
                 }
-                IconButton(onClick = { vm.moveSpeechField(list, i, +1) }, enabled = i < n - 1) {
+                IconButton(
+                    onClick = { vm.moveSpeechField(list, i, +1) },
+                    enabled = i < n - 1,
+                    modifier = Modifier.focusProperties { canFocus = false },
+                ) {
                     Icon(Icons.Filled.KeyboardArrowDown, contentDescription = null)
+                }
+                IconButton(
+                    onClick = { editing = field },
+                    modifier = Modifier.focusProperties { canFocus = false },
+                ) {
+                    Icon(Icons.Filled.Edit, contentDescription = null)
                 }
             }
             HorizontalDivider()
@@ -802,13 +853,20 @@ private fun TextRow(label: String, value: String, onCommit: (String) -> Unit) {
 @Composable
 private fun SliderRow(label: String, value: Int, onChange: (Int) -> Unit) {
     var pos by remember(value) { mutableFloatStateOf(value.toFloat()) }
+    // Saved once the value has stopped changing: arrow keys and TalkBack adjust it
+    // a step at a time, and not every input path reports a finished drag.
+    LaunchedEffect(pos) {
+        delay(400)
+        if (pos.roundToInt() != value) onChange(pos.roundToInt())
+    }
     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
         Text("$label: ${pos.roundToInt()}", style = MaterialTheme.typography.bodyLarge)
         Slider(
             value = pos,
             onValueChange = { pos = it },
-            onValueChangeFinished = { onChange(pos.roundToInt()) },
             valueRange = 0f..100f,
+            steps = 19,
+            modifier = Modifier.semantics { contentDescription = label },
         )
     }
 }
@@ -822,3 +880,27 @@ private fun HelpText(text: String) {
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
     )
 }
+
+/**
+ * Keyboard handling for a reorderable settings row: the row is one focus stop;
+ * Space or Enter toggles it, Ctrl+Up / Ctrl+Down move it, and Ctrl+E (when
+ * [onEdit] is given) opens its extra-text editor. The inner switch and arrow
+ * buttons stay for touch but are not keyboard focus stops.
+ */
+private fun Modifier.reorderRowKeys(
+    onToggle: () -> Unit,
+    onMove: (Int) -> Unit,
+    onEdit: (() -> Unit)? = null,
+): Modifier = this
+    .onKeyEvent { e ->
+        if (e.type != KeyEventType.KeyDown) return@onKeyEvent false
+        when {
+            e.isCtrlPressed && e.key == Key.DirectionUp -> { onMove(-1); true }
+            e.isCtrlPressed && e.key == Key.DirectionDown -> { onMove(+1); true }
+            e.isCtrlPressed && e.key == Key.E && onEdit != null -> { onEdit(); true }
+            !e.isCtrlPressed && (e.key == Key.Spacebar || e.key == Key.Enter ||
+                e.key == Key.NumPadEnter || e.key == Key.DirectionCenter) -> { onToggle(); true }
+            else -> false
+        }
+    }
+    .focusable()

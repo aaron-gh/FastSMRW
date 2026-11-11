@@ -206,7 +206,16 @@ data class ComposeContext(
     val participants: List<ComposeParticipant>,
     /** The "Return key sends the post" setting, resolved by the core. */
     val enterToSend: Boolean,
+    val featurePolls: Boolean = false,
+    val featureScheduling: Boolean = false,
+    val languages: List<ComposeLanguage> = emptyList(),
 )
+
+/** A language the composer offers (code sent to the server, name shown). */
+data class ComposeLanguage(val code: String, val name: String)
+
+/** A poll to attach to a new post. */
+data class PollDraft(val options: List<String>, val multiple: Boolean, val expiresInSeconds: Int)
 
 /**
  * Owns the single [FastSmCore] instance and turns its JSON event stream into
@@ -1507,6 +1516,9 @@ class CoreViewModel(app: Application) : AndroidViewModel(app) {
         visibility: Int,
         mentions: List<String>,
         media: List<OutgoingMedia> = emptyList(),
+        language: String? = null,
+        poll: PollDraft? = null,
+        scheduledAt: Long? = null,
     ) {
         val ctx = _composeContext.value ?: return
         val draft = JSONObject().apply {
@@ -1514,6 +1526,15 @@ class CoreViewModel(app: Application) : AndroidViewModel(app) {
             if (cw.isNotBlank()) put("spoiler_text", cw)
             if (ctx.featureVisibility && visibility >= 0) put("visibility", visibility)
             if (mentions.isNotEmpty()) put("mentions", JSONArray(mentions))
+            if (!language.isNullOrEmpty()) put("language", language)
+            poll?.let { p ->
+                put("poll", JSONObject().apply {
+                    put("options", JSONArray(p.options))
+                    put("multiple", p.multiple)
+                    put("expires_in_seconds", p.expiresInSeconds)
+                })
+            }
+            scheduledAt?.let { put("scheduled_at", it) }
             if (media.isNotEmpty()) {
                 put("attachments", JSONArray().apply {
                     media.forEach { m ->
@@ -1579,6 +1600,13 @@ class CoreViewModel(app: Application) : AndroidViewModel(app) {
             editId = nullable("edit_id"),
             participants = participants,
             enterToSend = e.optBoolean("enter_to_send"),
+            featurePolls = features?.optBoolean("polls") ?: false,
+            featureScheduling = features?.optBoolean("scheduling") ?: false,
+            languages = e.optJSONArray("languages")?.let { arr ->
+                (0 until arr.length()).mapNotNull { i ->
+                    arr.optJSONObject(i)?.let { ComposeLanguage(it.optString("code"), it.optString("name")) }
+                }.filter { it.code.isNotEmpty() }
+            } ?: emptyList(),
         )
     }
 

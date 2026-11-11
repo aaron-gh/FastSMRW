@@ -65,6 +65,9 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.runtime.mutableLongStateOf
+import me.masonasons.fastsm.ui.PollDraft
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -136,6 +139,19 @@ fun ComposeScreen(
     var sending by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
 
+    // Language, poll and scheduling: new posts only (an edit keeps what it had).
+    val isEdit = ctx.editId != null
+    val showLanguage = ctx.languages.isNotEmpty() && !isEdit
+    val showPoll = ctx.featurePolls && !isEdit
+    val showSchedule = ctx.featureScheduling && !isEdit
+    var languageIndex by remember { mutableIntStateOf(0) }
+    var pollOn by remember { mutableStateOf(false) }
+    val pollChoices = remember { mutableStateListOf("", "", "", "") }
+    var pollMultiple by remember { mutableStateOf(false) }
+    var pollDurationIndex by remember { mutableIntStateOf(4) } // 1 day
+    var scheduleOn by remember { mutableStateOf(false) }
+    var scheduleAt by remember { mutableLongStateOf(System.currentTimeMillis() + 3_600_000L) }
+
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val attachments = remember { mutableStateListOf<PickedMedia>() }
@@ -162,7 +178,7 @@ fun ComposeScreen(
     var confirmDiscard by remember { mutableStateOf(false) }
     fun closeOrAsk() {
         val dirty = field.text != ctx.prefillText || cw != ctx.prefillCw ||
-            attachments.isNotEmpty()
+            attachments.isNotEmpty() || (pollOn && pollChoices.any { it.isNotBlank() })
         if (ctx.confirmDiscard && dirty) confirmDiscard = true else onDone()
     }
 
@@ -192,6 +208,22 @@ fun ComposeScreen(
 
     fun send() {
         error = null
+        val poll = if (showPoll && pollOn) {
+            val options = pollChoices.map { it.trim() }.filter { it.isNotEmpty() }
+            if (options.size < 2) {
+                error = "A poll needs at least two choices."
+                return
+            }
+            PollDraft(options, pollMultiple, POLL_DURATIONS[pollDurationIndex].second)
+        } else null
+        val scheduled = if (showSchedule && scheduleOn) {
+            if (scheduleAt <= System.currentTimeMillis()) {
+                error = "The scheduled time has to be in the future."
+                return
+            }
+            scheduleAt / 1000
+        } else null
+        val language = if (showLanguage) ctx.languages.getOrNull(languageIndex)?.code else null
         sending = true
         val mentions = ctx.participants.filter { checked[it.acct] == true }.map { it.acct }
         val picked = attachments.toList()
@@ -206,7 +238,10 @@ fun ComposeScreen(
                     OutgoingMedia(m.name, m.mime, m.alt, Base64.encodeToString(bytes, Base64.NO_WRAP))
                 }
             }
-            viewModel.sendPost(text = body, cw = cw, visibility = visibility, mentions = mentions, media = media)
+            viewModel.sendPost(
+                text = body, cw = cw, visibility = visibility, mentions = mentions, media = media,
+                language = language, poll = poll, scheduledAt = scheduled,
+            )
         }
     }
 
@@ -373,6 +408,47 @@ fun ComposeScreen(
                 )
             }
 
+            if (showLanguage) {
+                ComposeCombo(
+                    label = "Language",
+                    options = ctx.languages.map { it.name },
+                    selected = languageIndex,
+                    enabled = !sending,
+                    onSelect = { languageIndex = it },
+                )
+            }
+
+            if (showPoll) {
+                CheckRow("Add a poll", pollOn, !sending) { pollOn = it }
+                if (pollOn) {
+                    pollChoices.forEachIndexed { i, choice ->
+                        OutlinedTextField(
+                            value = choice,
+                            onValueChange = { pollChoices[i] = it },
+                            label = { Text("Poll choice ${i + 1}") },
+                            singleLine = true,
+                            enabled = !sending,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                    CheckRow("Allow multiple choices", pollMultiple, !sending) { pollMultiple = it }
+                    ComposeCombo(
+                        label = "Duration",
+                        options = POLL_DURATIONS.map { it.first },
+                        selected = pollDurationIndex,
+                        enabled = !sending,
+                        onSelect = { pollDurationIndex = it },
+                    )
+                }
+            }
+
+            if (showSchedule) {
+                CheckRow("Schedule for later", scheduleOn, !sending) { scheduleOn = it }
+                if (scheduleOn) {
+                    ScheduleRow(at = scheduleAt, enabled = !sending, onChange = { scheduleAt = it })
+                }
+            }
+
             if (ctx.participants.isNotEmpty()) {
                 Text("Recipients", style = MaterialTheme.typography.labelLarge)
                 ctx.participants.forEach { p ->
@@ -494,6 +570,26 @@ private fun MentionDialog(
     )
 }
 
+private val POLL_DURATIONS = listOf(
+    "5 minutes" to 300, "30 minutes" to 1800, "1 hour" to 3600, "6 hours" to 21600,
+    "1 day" to 86400, "3 days" to 259200, "7 days" to 604800,
+)
+
+/** A labelled checkbox row (one focus stop, one TalkBack node). */
+@Composable
+private fun CheckRow(label: String, checked: Boolean, enabled: Boolean, onChange: (Boolean) -> Unit) {
+    Row(
+        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .toggleable(value = checked, enabled = enabled, role = Role.Checkbox, onValueChange = onChange)
+            .padding(vertical = 4.dp),
+    ) {
+        Checkbox(checked = checked, onCheckedChange = null, enabled = enabled)
+        Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(start = 8.dp))
+    }
+}
+
 /** A labelled choice that opens a menu of [options]. */
 @Composable
 private fun ComposeCombo(
@@ -524,5 +620,51 @@ private fun ComposeCombo(
                 DropdownMenuItem(text = { Text(name) }, onClick = { onSelect(i); open = false })
             }
         }
+    }
+}
+
+/** The scheduled date and time, each changed with the system picker. */
+@Composable
+private fun ScheduleRow(at: Long, enabled: Boolean, onChange: (Long) -> Unit) {
+    val context = LocalContext.current
+    val cal = java.util.Calendar.getInstance().apply { timeInMillis = at }
+    val dateText = java.text.DateFormat.getDateInstance(java.text.DateFormat.FULL).format(cal.time)
+    val timeText = java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT).format(cal.time)
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        TextButton(
+            enabled = enabled,
+            onClick = {
+                android.app.DatePickerDialog(
+                    context,
+                    { _, y, m, d ->
+                        val c = java.util.Calendar.getInstance().apply { timeInMillis = at; set(y, m, d) }
+                        onChange(c.timeInMillis)
+                    },
+                    cal.get(java.util.Calendar.YEAR), cal.get(java.util.Calendar.MONTH),
+                    cal.get(java.util.Calendar.DAY_OF_MONTH),
+                ).apply { datePicker.minDate = System.currentTimeMillis() - 1000 }.show()
+            },
+            modifier = Modifier.semantics { contentDescription = "Scheduled date, $dateText" },
+        ) { Text(dateText) }
+        TextButton(
+            enabled = enabled,
+            onClick = {
+                android.app.TimePickerDialog(
+                    context,
+                    { _, h, min ->
+                        val c = java.util.Calendar.getInstance().apply {
+                            timeInMillis = at
+                            set(java.util.Calendar.HOUR_OF_DAY, h)
+                            set(java.util.Calendar.MINUTE, min)
+                            set(java.util.Calendar.SECOND, 0)
+                        }
+                        onChange(c.timeInMillis)
+                    },
+                    cal.get(java.util.Calendar.HOUR_OF_DAY), cal.get(java.util.Calendar.MINUTE),
+                    android.text.format.DateFormat.is24HourFormat(context),
+                ).show()
+            },
+            modifier = Modifier.semantics { contentDescription = "Scheduled time, $timeText" },
+        ) { Text(timeText) }
     }
 }

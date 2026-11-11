@@ -489,7 +489,9 @@ void CoreSession::handle(const json& cmd) {
     else if (c == "resume")
         cmd_resume();
     else if (c == "pause")
-        cmd_pause();
+        cmd_pause(cmd);
+    else if (c == "sync_ui")
+        cmd_sync_ui();
     else if (c == "load_older")
         cmd_load_older(cmd);
     else if (c == "load_gap")
@@ -1066,16 +1068,29 @@ void CoreSession::cmd_resume() {
                 other->refresh();
 }
 
+// A front end reattached to a session that kept running (Android's background
+// mode: the window was closed, the core wasn't). Send it everything it renders.
+void CoreSession::cmd_sync_ui() {
+    emit_accounts();
+    emit_timelines();
+    emit_all_timelines();
+    emit_settings();
+}
+
 // The app is being backgrounded. On a phone the process can be suspended — or
 // killed outright — before the idle timer fires or the app ever exits, so publish
 // every position that's still waiting instead of losing it.
-void CoreSession::cmd_pause() {
+void CoreSession::cmd_pause(const json& cmd) {
     std::vector<std::string> keys;
     keys.reserve(marker_pending_.size());
     for (const auto& [key, id] : marker_pending_)
         keys.push_back(key);
     for (const std::string& key : keys)
         commit_home_marker(key); // erases from marker_pending_, hence the snapshot
+    // "keep_running": the user asked for the app to stay live in the background
+    // (Android's background mode) -- sounds, streams and auto-read carry on.
+    if (cmd.value("keep_running", false))
+        return;
     // Go idle. An open audio output keeps a phone awake (it holds the audio
     // wakelock even when silent), and with it awake the streams and auto-refresh
     // would keep the radio and CPU busy for a screen nobody is looking at.

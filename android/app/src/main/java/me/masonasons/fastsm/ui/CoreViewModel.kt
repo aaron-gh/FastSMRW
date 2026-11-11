@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import me.masonasons.fastsm.FastSmApp
 import me.masonasons.fastsm.core.FastSmCore
 import me.masonasons.fastsm.push.FastSmMessagingService
 import me.masonasons.fastsm.push.PushManager
@@ -218,7 +219,10 @@ data class ComposeContext(
  */
 class CoreViewModel(app: Application) : AndroidViewModel(app) {
 
-    private val core: FastSmCore = FastSmCore.create(app)
+    // The process's core session (owned by FastSmApp so it can outlive the window).
+    private val fastSmApp = app as FastSmApp
+    private val core: FastSmCore = fastSmApp.core
+    private val coreListener = FastSmCore.EventListener { json -> onEvent(json) }
 
     private val _accounts = MutableStateFlow<List<AccountUi>>(emptyList())
     val accounts: StateFlow<List<AccountUi>> = _accounts.asStateFlow()
@@ -416,13 +420,11 @@ class CoreViewModel(app: Application) : AndroidViewModel(app) {
     private val _appUpdate = MutableStateFlow<AppUpdateUi?>(null)
     val appUpdate: StateFlow<AppUpdateUi?> = _appUpdate.asStateFlow()
 
-    // Guards the once-per-launch startup update check (fired when settings first
-    // arrive, so we can honour the check_updates_on_startup preference).
-    private var startupUpdateChecked = false
 
     init {
-        core.setEventListener { json -> onEvent(json) }
-        core.dispatch("start") // load persisted accounts + timelines
+        // First window: start the session. A later one (the session kept running in
+        // the background): have the core send its current state.
+        fastSmApp.attachUi(coreListener)
     }
 
     private fun onEvent(e: JSONObject) {
@@ -450,8 +452,8 @@ class CoreViewModel(app: Application) : AndroidViewModel(app) {
                 // Quietly check GitHub once on launch if the preference is on. "stable"
                 // forces a version-tag comparison (Android embeds no build commit for
                 // the "latest" branch).
-                if (!startupUpdateChecked) {
-                    startupUpdateChecked = true
+                if (!fastSmApp.startupUpdateChecked) {
+                    fastSmApp.startupUpdateChecked = true
                     if (settings?.optBoolean("check_updates_on_startup", true) != false) {
                         core.dispatch("check_for_update") { put("silent", true); put("branch", "stable") }
                     }
@@ -954,7 +956,9 @@ class CoreViewModel(app: Application) : AndroidViewModel(app) {
      * Going to the background: publish any reading position still waiting on its
      * idle timer, since Android can kill the process before it fires.
      */
-    fun pause() = core.dispatch("pause")
+    fun pause(keepRunning: Boolean = false) = core.dispatch("pause") {
+        if (keepRunning) put("keep_running", true)
+    }
 
     /** Open a post's conversation as a new tab. */
     fun openThread(id: String) = core.dispatch("open_thread") { put("id", id) }
@@ -1583,7 +1587,9 @@ class CoreViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     override fun onCleared() {
-        core.destroy()
+        // The core belongs to the process (it may keep running in the background);
+        // only this window's listener goes.
+        fastSmApp.removeCoreListener(coreListener)
         super.onCleared()
     }
 }

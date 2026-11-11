@@ -178,7 +178,16 @@ data class ProfileUi(
     val requested: Boolean,
     // Direct messages need the direct visibility level (Mastodon only).
     val canMessage: Boolean = false,
+    val canHideBoosts: Boolean = false,
+    val canUseLists: Boolean = false,
+    val showingReblogs: Boolean = true,
 )
+
+/** One list and whether the person is on it (user_lists, from Add to List). */
+data class UserListUi(val id: String, val title: String, val member: Boolean)
+
+/** The lists a person can be added to or removed from. */
+data class UserListsUi(val accountId: String, val acct: String, val lists: List<UserListUi>)
 
 /** A key + label pair from one of the core's catalogs (speech fields, movement units, post actions). */
 data class CatalogEntry(val key: String, val label: String)
@@ -355,6 +364,9 @@ class CoreViewModel(app: Application) : AndroidViewModel(app) {
     val mentionSuggestions: StateFlow<MentionSuggestions?> = _mentionSuggestions.asStateFlow()
 
     /** Non-null while a profile screen is open (from a user_profile event). */
+    private val _userLists = MutableStateFlow<UserListsUi?>(null)
+    val userLists: StateFlow<UserListsUi?> = _userLists.asStateFlow()
+
     /** Follow hashtag: the post's hashtags to offer (empty: type one). */
     private val _hashtagPrompt = MutableStateFlow<List<String>?>(null)
     val hashtagPrompt: StateFlow<List<String>?> = _hashtagPrompt.asStateFlow()
@@ -727,7 +739,28 @@ class CoreViewModel(app: Application) : AndroidViewModel(app) {
                 blocking = e.optBoolean("blocking"),
                 requested = e.optBoolean("requested"),
                 canMessage = e.optBoolean("can_message"),
+                canHideBoosts = e.optBoolean("can_hide_boosts"),
+                canUseLists = e.optBoolean("can_use_lists"),
+                showingReblogs = e.optBoolean("showing_reblogs", true),
             )
+
+            "user_lists" -> {
+                if (!e.optBoolean("supported")) {
+                    _announcements.tryEmit("Lists are only available for Mastodon accounts.")
+                } else {
+                    val arr = e.optJSONArray("lists")
+                    _userLists.value = UserListsUi(
+                        accountId = e.optString("account_id"),
+                        acct = e.optString("acct"),
+                        lists = buildList {
+                            if (arr != null) for (i in 0 until arr.length()) {
+                                val l = arr.getJSONObject(i)
+                                add(UserListUi(l.optString("id"), l.optString("title"), l.optBoolean("member")))
+                            }
+                        },
+                    )
+                }
+            }
 
             "hashtag_prompt" -> {
                 val arr = e.optJSONArray("tags")
@@ -1456,6 +1489,27 @@ class CoreViewModel(app: Application) : AndroidViewModel(app) {
 
     /** The interact action (tap / Enter): the core resolves it from Behavior settings. */
     fun interact(id: String) = performAction("Enter", id)
+
+    fun openFollowersOf(accountId: String, acct: String) =
+        core.dispatch("open_followers") { put("account_id", accountId); put("acct", acct) }
+
+    fun openFollowingOf(accountId: String, acct: String) =
+        core.dispatch("open_following") { put("account_id", accountId); put("acct", acct) }
+
+    /** Ask which lists a person is on (answered by user_lists). */
+    fun getUserLists(accountId: String, acct: String) =
+        core.dispatch("get_user_lists") { put("account_id", accountId); put("acct", acct) }
+
+    fun setUserList(listId: String, accountId: String, add: Boolean) {
+        core.dispatch("set_user_list") {
+            put("list_id", listId); put("account_id", accountId); put("add", add)
+        }
+        _userLists.update { cur ->
+            cur?.copy(lists = cur.lists.map { if (it.id == listId) it.copy(member = add) else it })
+        }
+    }
+
+    fun dismissUserLists() { _userLists.value = null }
 
     fun dismissHashtagPrompt() { _hashtagPrompt.value = null }
 

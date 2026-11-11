@@ -53,6 +53,16 @@ fun ProfileScreen(
     // Set while the Confirmation setting says to ask before following/unfollowing.
     var pendingFollow by remember(profile.accountId) { mutableStateOf(false) }
     var pendingUnfollow by remember(profile.accountId) { mutableStateOf(false) }
+    var muting by remember(profile.accountId) { mutableStateOf(profile.muting) }
+    var blocking by remember(profile.accountId) { mutableStateOf(profile.blocking) }
+    var showingReblogs by remember(profile.accountId) { mutableStateOf(profile.showingReblogs) }
+    // Block / unblock waiting on its confirmation (Settings, Confirmation).
+    var pendingBlock by remember(profile.accountId) { mutableStateOf<Boolean?>(null) }
+
+    fun setBlock(block: Boolean) {
+        viewModel.setRelationship(profile.accountId, if (block) "block" else "unblock", profile.acct)
+        blocking = block
+    }
 
     BackHandler(enabled = true) { onClose() }
 
@@ -110,6 +120,46 @@ fun ProfileScreen(
 
                 Button(onClick = onViewPosts) { Text("View posts") }
 
+                if (profile.hasRelationship) {
+                    Button(onClick = {
+                        viewModel.setRelationship(
+                            profile.accountId, if (muting) "unmute" else "mute", profile.acct,
+                        )
+                        muting = !muting
+                    }) { Text(if (muting) "Unmute" else "Mute") }
+                    Button(onClick = {
+                        val block = !blocking
+                        val key = if (block) "confirm_block" else "confirm_unblock"
+                        if (viewModel.confirmsBefore(key, default = block)) pendingBlock = block
+                        else setBlock(block)
+                    }) { Text(if (blocking) "Unblock" else "Block") }
+                    if (profile.canHideBoosts && following) {
+                        Button(onClick = {
+                            viewModel.setRelationship(
+                                profile.accountId,
+                                if (showingReblogs) "hide_boosts" else "show_boosts",
+                                profile.acct,
+                            )
+                            showingReblogs = !showingReblogs
+                        }) { Text(if (showingReblogs) "Hide boosts" else "Show boosts") }
+                    }
+                }
+
+                Button(onClick = {
+                    viewModel.openFollowersOf(profile.accountId, profile.acct)
+                    onClose()
+                }) { Text("Followers") }
+                Button(onClick = {
+                    viewModel.openFollowingOf(profile.accountId, profile.acct)
+                    onClose()
+                }) { Text("Following") }
+
+                if (profile.canUseLists) {
+                    Button(onClick = { viewModel.getUserLists(profile.accountId, profile.acct) }) {
+                        Text("Add to list…")
+                    }
+                }
+
                 // Direct messages need the direct visibility level (Mastodon only).
                 if (profile.canMessage) {
                     Button(onClick = {
@@ -152,6 +202,19 @@ fun ProfileScreen(
                     Text("Cancel")
                 }
             },
+        )
+    }
+
+    pendingBlock?.let { block ->
+        val verb = if (block) "Block" else "Unblock"
+        AlertDialog(
+            onDismissRequest = { pendingBlock = null },
+            title = { Text(verb) },
+            text = { Text("$verb @${profile.acct}?") },
+            confirmButton = {
+                TextButton(onClick = { setBlock(block); pendingBlock = null }) { Text(verb) }
+            },
+            dismissButton = { TextButton(onClick = { pendingBlock = null }) { Text("Cancel") } },
         )
     }
 

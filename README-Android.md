@@ -137,7 +137,8 @@ out.
 
 Following, muting, blocking, or reporting a person is done from their Profile
 screen (open a user's profile from a post's menu): Follow or unfollow, View
-posts, Report, and Open in browser. Muted and blocked users are reviewed by
+posts, Mute or unmute, Block or unblock, Hide or show boosts, Followers,
+Following, Add to list (Mastodon), Send a message, Report, and Open in browser. Muted and blocked users are reviewed by
 opening the Muted Users and Blocked Users timelines.
 
 ## Writing a post

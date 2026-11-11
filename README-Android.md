@@ -154,7 +154,13 @@ the other versions of FastSM:
 - General — whether the Return key sends the post.
 - Notifications — turn push notifications on or off (Mastodon).
 - Background — Run in the background (FastSMRW keeps running after you leave it,
-  with a notification that has a Stop button).
+  with a notification that has a Stop button), Read new posts in the
+  background (speaks new posts in timelines with Auto-read on; keeps the phone
+  awake, which uses more battery), Speak with (SandFly, when it's installed, or
+  text-to-speech), the text-to-speech engine, and Test speech. SandFly speaks
+  only after you turn on Apps, Let other apps speak in SandFly and allow
+  FastSMRW; it doesn't speak for other apps while the phone is locked, so
+  text-to-speech reads then.
 - Timelines — cache size, auto-refresh interval, real-time streaming (Mastodon),
   tab-bar position, showing mentions in Notifications, reversing timelines,
   auto-loading older posts, and syncing your Home reading position (Mastodon).

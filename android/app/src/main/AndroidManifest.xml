@@ -4,10 +4,25 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Push notifications (Android 13+ asks the user; older versions grant it). -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <!-- Run in the background (Settings, Background): a foreground service. -->
+    <!-- Run in the background (Settings, Background): a foreground service, and a
+         wake lock so new posts are read aloud with the screen off. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
 
+    <!-- Speaking background posts through SandFly (its speech API, docs/speech-api.md
+         in SandFly); the user allows FastSMRW in SandFly first. -->
+    <uses-permission android:name="io.github.aaron_gh.sandfly.permission.SPEAK" />
+    <!-- Asks SandFly to speak while the phone is locked; the user allows it separately in SandFly. -->
+    <uses-permission android:name="io.github.aaron_gh.sandfly.permission.SPEAK_WHEN_LOCKED" />
+
+    <!-- The installed text-to-speech engines and SandFly, for the background speech setting. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+        <package android:name="io.github.aaron_gh.sandfly" />
+    </queries>
 
     <application
         android:name=".FastSmApp"
@@ -51,7 +66,7 @@
             android:foregroundServiceType="specialUse">
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="Keeps a social media client's live timelines and sounds running for blind users while the app is closed." />
+                android:value="Keeps a social media client's live timelines, sounds and text-to-speech reading of new posts running for blind users while the app is closed." />
         </service>
 
         <!-- Runs a push notification's Reply, Favourite or Boost button. -->

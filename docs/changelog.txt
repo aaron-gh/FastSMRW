@@ -4,6 +4,7 @@ FastSMRW changelog
 0.6.1
 -----
 
+- New: on Android, tapping a post or a person now does what you choose under Settings, Behavior (Post Info by default), as on iPhone.
 - New: on Android, Post Info (in a post's actions) shows the whole post, including the text behind a content warning, with its actions and poll voting.
 - New: on Android, new posts in timelines with Auto-read on can be read aloud while FastSMRW is in the background, through SandFly's speech (when the phone is unlocked) or a text-to-speech engine you choose; it can be turned off.
 - New: on Android, Settings, Background, Run in the background keeps FastSMRW running after you leave it, with a notification you can stop it from.

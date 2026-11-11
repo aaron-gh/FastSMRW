@@ -722,6 +722,12 @@ class CoreViewModel(app: Application) : AndroidViewModel(app) {
                 canMessage = e.optBoolean("can_message"),
             )
 
+            // Tap on a person with "Tap on a user" set to User actions: the profile
+            // screen holds every action for a person (as on the Mac).
+            "invisible_ui_action" -> {
+                if (e.optString("action") == "UserActions") performAction("UserProfile")
+            }
+
             "speech_catalog" -> {
                 _speechCatalog.value = listOf(
                     "status", "user", "notification", "autoread",
@@ -1326,6 +1332,12 @@ class CoreViewModel(app: Application) : AndroidViewModel(app) {
         if (tab == _currentTab.value) core.dispatch("note_selection") { put("id", row.id) }
     }
 
+    /** Run a core action by name (perform_action), on [id] or the current row. */
+    fun performAction(action: String, id: String? = null) = core.dispatch("perform_action") {
+        put("action", action)
+        if (!id.isNullOrBlank()) put("id", id)
+    }
+
     // Find in timeline (client-side, mirroring the desktop apps): a case-insensitive
     // substring search over the posts' spoken text. A match moves the reading
     // position there (scrolling to it) and speaks it through TalkBack; the query is
@@ -1427,6 +1439,9 @@ class CoreViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Fill the missing posts after row [id] (a gap left by a refresh). */
     fun loadGap(id: String) = core.dispatch("load_gap") { put("id", id) }
+
+    /** The interact action (tap / Enter): the core resolves it from Behavior settings. */
+    fun interact(id: String) = performAction("Enter", id)
 
     fun loadCatalogs() {
         core.dispatch("get_speech_catalog")

@@ -78,6 +78,8 @@ fun StatusRow(
     onCopy: (String) -> Unit,
     onSetRelationship: (accountId: String, action: String, acct: String) -> Unit,
     onMessageRequest: (rowId: String, accept: Boolean) -> Unit,
+    /** The interact action (tap, Enter), resolved by the core from Behavior settings. */
+    onInteract: (String) -> Unit,
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
@@ -142,15 +144,14 @@ fun StatusRow(
     }
     val actions = menuActions.toAccessibilityActions()
 
-    // Primary open: a follow-request notification offers Accept/Reject; a grouped
-    // like/boost notification opens the list of everyone in the group; every
-    // other row opens its thread.
+    // Primary open: a follow-request notification offers Accept/Reject and a
+    // message request Accept/Dismiss; every other row runs the interact action
+    // the core resolves from Settings, Behavior (Tap on a post / Tap on a user;
+    // grouped like/boost notifications open the list of everyone in the group).
     val primaryOpen: () -> Unit = when {
         row.followRequest -> ({ showFollowRequest = true })
         row.notificationRequest -> ({ showMessageRequest = true })
-        row.groupActors == "favorited_by" -> ({ onOpenFavoritedBy(row.id) })
-        row.groupActors == "reblogged_by" -> ({ onOpenRebloggedBy(row.id) })
-        else -> ({ onOpenThread(row.id) })
+        else -> ({ onInteract(row.id) })
     }
     val shownText = row.textWithBreaks.ifEmpty { row.text }
 

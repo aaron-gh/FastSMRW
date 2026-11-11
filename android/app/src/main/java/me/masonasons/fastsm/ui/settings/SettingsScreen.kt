@@ -551,11 +551,29 @@ private fun AdvancedPanel(s: JSONObject, vm: CoreViewModel) {
 
 @Composable
 private fun BehaviorPanel(s: JSONObject, vm: CoreViewModel) {
+    ComboRow("Tap on a post", interactOptions, s.optString("enter_post_action").ifEmpty { "post_info" }) {
+        vm.updateSetting { put("enter_post_action", it) }
+    }
+    ComboRow("Tap on a user", userTapOptions, s.optString("enter_user_action").ifEmpty { "actions" }) {
+        vm.updateSetting { put("enter_user_action", it) }
+    }
     SwitchRow("Put extra reply mentions at the end", s.optBoolean("reply_mentions_at_end")) {
         vm.updateSetting { put("reply_mentions_at_end", it) }
     }
     HelpText("In a reply, mention the person you're replying to up front and move the other mentioned users to the end of the post.")
 }
+
+// What tapping a post (Enter) does; keys are post-action catalog keys, labels
+// match the iPhone app.
+private val interactOptions = listOf(
+    "post_info" to "View post info", "thread" to "View thread", "reply" to "Reply",
+    "quote" to "Quote", "favorite" to "Favorite", "boost" to "Boost",
+    "bookmark" to "Bookmark", "play_media" to "View media", "links" to "Open links",
+    "browser" to "Open in browser", "copy" to "Copy",
+)
+private val userTapOptions = listOf(
+    "actions" to "User actions", "profile" to "View profile", "timeline" to "View their timeline",
+)
 
 // How often an automatic check comes round while FastSMRW runs (hours; 0: only at start)
 private val updateIntervalOptions = listOf(

@@ -145,7 +145,11 @@ fun HomeScreen(
         TimelineTabs(
             tabs = tabs,
             selectedIndex = pagerState.currentPage,
-            onSelect = { index -> scope.launch { pagerState.animateScrollToPage(index) } },
+            // Tapping the tab already shown jumps its timeline to the newest post.
+            onSelect = { index ->
+                if (index == pagerState.currentPage) viewModel.jumpToNewest(index)
+                else scope.launch { pagerState.animateScrollToPage(index) }
+            },
             onClose = viewModel::closeTimeline,
             // Clearing the tab you are on; the overflow menu's entry does the same for
             // the focused timeline.
@@ -993,7 +997,9 @@ private fun TimelineTabs(
                                 if (selected) append(", selected")
                             }
                             customActions = actions
-                            onClick { onSelect(index); true }
+                            onClick(label = if (selected) "Jump to newest post" else null) {
+                                onSelect(index); true
+                            }
                         },
                 ) {
                     Text(tab.title)

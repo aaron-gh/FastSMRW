@@ -392,6 +392,7 @@ final class MainViewController: UIViewController {
             if timeline.muted { label += ", muted" }
             button.accessibilityLabel = label
             button.accessibilityTraits = selected ? [.button, .selected] : .button
+            button.accessibilityHint = selected ? "Jumps to the newest post." : nil
             button.tag = index
             button.addTarget(self, action: #selector(tabTapped(_:)), for: .touchUpInside)
 
@@ -451,7 +452,14 @@ final class MainViewController: UIViewController {
     }
 
     @objc private func tabTapped(_ sender: UIButton) {
-        state.selectTimeline(index: sender.tag)
+        // Tapping the tab already shown jumps its timeline to the newest post.
+        guard sender.tag == state.currentIndex else {
+            state.selectTimeline(index: sender.tag)
+            return
+        }
+        guard let row = state.currentReversed ? rows.last : rows.first else { return }
+        select(id: row.id)
+        state.noteSelection(id: row.id)
     }
 
     @objc private func swipedLeft() { state.selectTimeline(dir: "next") }

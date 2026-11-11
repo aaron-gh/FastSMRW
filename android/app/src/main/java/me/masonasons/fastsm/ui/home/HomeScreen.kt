@@ -371,6 +371,7 @@ fun HomeScreen(
                 onMessageRequest = viewModel::messageRequestAction,
                 onInteract = viewModel::interact,
                 onLoadGap = viewModel::loadGap,
+                isUserList = tabs.getOrNull(pageIndex)?.userList == true,
             )
         }
     }
@@ -824,6 +825,7 @@ private fun StatusList(
     onMessageRequest: (rowId: String, accept: Boolean) -> Unit,
     onInteract: (String) -> Unit,
     onLoadGap: (String) -> Unit,
+    isUserList: Boolean,
 ) {
     if (rows.isEmpty()) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -950,6 +952,7 @@ private fun StatusList(
                 onSetRelationship = onSetRelationship,
                 onMessageRequest = onMessageRequest,
                 onInteract = onInteract,
+                isUser = isUserList,
             )
         }
     }

@@ -4,6 +4,7 @@ FastSMRW changelog
 0.6.1
 -----
 
+- New: on Android, the post editor can set the post's language, add a poll and schedule the post for later.
 - New: on Android, a person's profile has Mute, Block, Hide boosts, Followers, Following and Add to list.
 - New: on Android, posts offer Open in browser, the author's Followers and Following, Follow hashtag and Pin to profile.
 - Fixed: on Android, people in Followers, Following, Search People and similar lists now open their profile when tapped and offer person actions instead of post actions.

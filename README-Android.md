@@ -152,6 +152,9 @@ limit). You can:
 - Add media (where supported), giving each item alt text.
 - Set the visibility (Public, Quiet public, Followers, or Specific people).
 - Choose which reply participants to include (Mastodon).
+- Pick the post's language, add a poll (up to four choices, multiple choice,
+  and a duration), or schedule it for a later date and time, where the server
+  supports it.
 
 ## Settings
 

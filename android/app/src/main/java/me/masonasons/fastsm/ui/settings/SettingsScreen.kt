@@ -148,6 +148,7 @@ fun SettingsScreen(viewModel: CoreViewModel, onClose: () -> Unit) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val soundpacks by viewModel.soundpacks.collectAsStateWithLifecycle()
     val speechCatalog by viewModel.speechCatalog.collectAsStateWithLifecycle()
+    val movementCatalog by viewModel.movementCatalog.collectAsStateWithLifecycle()
     val postActionCatalog by viewModel.postActionCatalog.collectAsStateWithLifecycle()
     // Labels come from the core, so fields and actions added there show up here.
     LaunchedEffect(Unit) { viewModel.loadCatalogs() }
@@ -159,6 +160,7 @@ fun SettingsScreen(viewModel: CoreViewModel, onClose: () -> Unit) {
     val goBack: () -> Unit = {
         when {
             speechList != null -> speechList = null
+            panel == "movement" -> panel = "timelines"
             panel != null -> panel = null
             else -> onClose()
         }
@@ -179,6 +181,7 @@ fun SettingsScreen(viewModel: CoreViewModel, onClose: () -> Unit) {
         panel == "confirmation" -> "Confirmation"
         panel == "behavior" -> "Behavior"
         panel == "post_actions" -> "Post actions"
+        panel == "movement" -> "Movement units"
         panel == "updates" -> "Updates"
         else -> "Settings"
     }
@@ -219,7 +222,10 @@ fun SettingsScreen(viewModel: CoreViewModel, onClose: () -> Unit) {
                 panel == "general" -> GeneralPanel(s, viewModel)
                 panel == "notifications" -> NotificationsPanel(s, viewModel)
                 panel == "background" -> BackgroundPanel()
-                panel == "timelines" -> TimelinesPanel(s, viewModel)
+                panel == "timelines" -> TimelinesPanel(s, viewModel) { panel = "movement" }
+                panel == "movement" -> MovementUnitsPanel(
+                    s, viewModel, movementCatalog.associate { it.key to it.label },
+                )
                 panel == "audio" -> AudioPanel(s, soundpacks, viewModel)
                 panel == "earcons" -> EarconsPanel(s, viewModel)
                 panel == "speech" -> SpeechPanel(s, viewModel) { speechList = it }
@@ -436,7 +442,7 @@ private fun BackgroundPanel() {
 }
 
 @Composable
-private fun TimelinesPanel(s: JSONObject, vm: CoreViewModel) {
+private fun TimelinesPanel(s: JSONObject, vm: CoreViewModel, onMovementUnits: () -> Unit) {
     NumberField(
         "Maximum posts to cache per timeline", s.optInt("cache_limit"), 0, CACHE_MAX,
         "How many posts to keep saved per timeline for instant startup (0-20000, 0 turns " +
@@ -465,6 +471,63 @@ private fun TimelinesPanel(s: JSONObject, vm: CoreViewModel) {
     }
     SwitchRow("Sync home position with the server (Mastodon)", s.optBoolean("sync_home_position")) {
         vm.updateSetting { put("sync_home_position", it) }
+    }
+    ActionRow("Movement units…", onMovementUnits)
+    HelpText("Which units Ctrl+Up and Ctrl+Down jump by, and the order Ctrl+Left and Ctrl+Right choose them in.")
+}
+
+@Composable
+private fun MovementUnitsPanel(s: JSONObject, vm: CoreViewModel, labels: Map<String, String>) {
+    val arr = s.optJSONArray("movement_units") ?: return
+    val n = arr.length()
+    HelpText("Double-tap or Space turns a unit on or off. Move it with its TalkBack actions, the arrow buttons, or Ctrl+Up and Ctrl+Down.")
+    for (i in 0 until n) {
+        val o = arr.getJSONObject(i)
+        val unit = o.optString("unit")
+        val enabled = o.optBoolean("enabled", true)
+        val label = labels[unit] ?: unit
+        key(unit) {
+            val actions = buildList {
+                add(CustomAccessibilityAction(if (enabled) "Turn off" else "Turn on") {
+                    vm.toggleMovementUnit(i, !enabled); true
+                })
+                if (i > 0) add(CustomAccessibilityAction("Move up") { vm.moveMovementUnit(i, -1); true })
+                if (i < n - 1) add(CustomAccessibilityAction("Move down") { vm.moveMovementUnit(i, +1); true })
+            }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .reorderRowKeys(
+                        onToggle = { vm.toggleMovementUnit(i, !enabled) },
+                        onMove = { delta -> if (i + delta in 0 until n) vm.moveMovementUnit(i, delta) },
+                    )
+                    .clearAndSetSemantics {
+                        contentDescription = "$label, ${if (enabled) "on" else "off"}, position ${i + 1} of $n"
+                        customActions = actions
+                        onClick { vm.toggleMovementUnit(i, !enabled); true }
+                    }
+                    .padding(start = 16.dp, top = 4.dp, end = 4.dp, bottom = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Switch(
+                    checked = enabled,
+                    onCheckedChange = { vm.toggleMovementUnit(i, it) },
+                    modifier = Modifier.focusProperties { canFocus = false },
+                )
+                Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f).padding(start = 8.dp))
+                IconButton(
+                    onClick = { vm.moveMovementUnit(i, -1) },
+                    enabled = i > 0,
+                    modifier = Modifier.focusProperties { canFocus = false },
+                ) { Icon(Icons.Filled.KeyboardArrowUp, contentDescription = null) }
+                IconButton(
+                    onClick = { vm.moveMovementUnit(i, +1) },
+                    enabled = i < n - 1,
+                    modifier = Modifier.focusProperties { canFocus = false },
+                ) { Icon(Icons.Filled.KeyboardArrowDown, contentDescription = null) }
+            }
+            HorizontalDivider()
+        }
     }
 }
 

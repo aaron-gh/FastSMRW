@@ -1535,6 +1535,27 @@ class CoreViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** Turn a movement unit on or off. */
+    fun toggleMovementUnit(index: Int, enabled: Boolean) {
+        updateSetting {
+            val arr = optJSONArray("movement_units") ?: return@updateSetting
+            if (index in 0 until arr.length()) arr.getJSONObject(index).put("enabled", enabled)
+        }
+    }
+
+    /** Move a movement unit up (-1) or down (+1). */
+    fun moveMovementUnit(index: Int, delta: Int) {
+        updateSetting {
+            val arr = optJSONArray("movement_units") ?: return@updateSetting
+            val target = index + delta
+            if (index !in 0 until arr.length() || target !in 0 until arr.length()) return@updateSetting
+            val a = arr.getJSONObject(index)
+            val b = arr.getJSONObject(target)
+            arr.put(index, b)
+            arr.put(target, a)
+        }
+    }
+
     /** Open the post on its server's website. */
     fun openStatusInBrowser(id: String) = core.dispatch("open_status") { put("id", id) }
 

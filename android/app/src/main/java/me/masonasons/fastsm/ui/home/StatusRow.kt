@@ -34,13 +34,13 @@ import me.masonasons.fastsm.ui.RowUi
  */
 // The Android-supported post actions, in default order (View Media first).
 // A subset of the shared post_action_catalog(): the actions StatusRow has a
-// handler for. Keys not here (post_info, browser, followers, following,
-// follow_hashtag, pin_post) aren't wired on Android yet.
+// handler for (the default order of post_action_catalog()).
 private val DEFAULT_POST_ACTION_ORDER = listOf(
-    "play_media", "reply", "boost", "favorite", "bookmark", "quote", "thread",
-    "mute_conversation", "favorited_by", "reblogged_by", "copy", "user_timeline",
-    "user_profile", "message", "open_hashtag_timeline", "speak_user", "alias",
-    "speak_reply", "jump_reply", "edit", "report", "delete",
+    "play_media", "links", "reply", "boost", "favorite", "bookmark", "quote", "thread",
+    "post_info", "copy", "user_profile", "user_timeline", "message", "followers", "following",
+    "mute_conversation", "favorited_by", "reblogged_by", "alias", "follow_hashtag",
+    "open_hashtag_timeline", "speak_user", "speak_reply", "jump_reply", "edit", "pin_post",
+    "report", "browser", "delete",
 )
 
 // The actions that make sense on a person (a row in Followers, Search People,
@@ -86,6 +86,8 @@ fun StatusRow(
     onMessageRequest: (rowId: String, accept: Boolean) -> Unit,
     /** The interact action (tap, Enter), resolved by the core from Behavior settings. */
     onInteract: (String) -> Unit,
+    /** A core post action by catalog key (perform_action). */
+    onPerform: (action: String, id: String) -> Unit,
     /** The row is a person, not a post. */
     isUser: Boolean = false,
 ) {
@@ -145,6 +147,16 @@ fun StatusRow(
                 "jump_reply" ->
                     if (row.isReply) MenuAction("Jump to referenced reply") { onJumpToReply(row.id) } else null
                 "edit" -> if (row.isMine) MenuAction("Edit") { onEdit(row.id) } else null
+                "browser" -> MenuAction("Open in browser") { onPerform("browser", row.id) }
+                "followers" -> MenuAction(if (isUser) "Followers" else "Author's followers") {
+                    onPerform("followers", row.id)
+                }
+                "following" -> MenuAction(if (isUser) "Following" else "Author's following") {
+                    onPerform("following", row.id)
+                }
+                "follow_hashtag" ->
+                    if (row.hasHashtags) MenuAction("Follow hashtag") { onPerform("follow_hashtag", row.id) } else null
+                "pin_post" -> if (row.isMine) MenuAction("Pin to profile") { onPerform("pin_post", row.id) } else null
                 "delete" -> if (row.isMine) MenuAction("Delete") { confirmDelete = true } else null
                 else -> null // a catalog action Android doesn't wire yet
             }

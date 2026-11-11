@@ -370,6 +370,7 @@ fun HomeScreen(
                 onSetRelationship = viewModel::setRelationship,
                 onMessageRequest = viewModel::messageRequestAction,
                 onInteract = viewModel::interact,
+                onPerform = { action, id -> viewModel.performAction(action, id) },
                 onLoadGap = viewModel::loadGap,
                 isUserList = tabs.getOrNull(pageIndex)?.userList == true,
             )
@@ -824,6 +825,7 @@ private fun StatusList(
     onSetRelationship: (accountId: String, action: String, acct: String) -> Unit,
     onMessageRequest: (rowId: String, accept: Boolean) -> Unit,
     onInteract: (String) -> Unit,
+    onPerform: (action: String, id: String) -> Unit,
     onLoadGap: (String) -> Unit,
     isUserList: Boolean,
 ) {
@@ -952,6 +954,7 @@ private fun StatusList(
                 onSetRelationship = onSetRelationship,
                 onMessageRequest = onMessageRequest,
                 onInteract = onInteract,
+                onPerform = onPerform,
                 isUser = isUserList,
             )
         }

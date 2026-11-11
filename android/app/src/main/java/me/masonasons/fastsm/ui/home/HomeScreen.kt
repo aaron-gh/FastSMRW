@@ -365,6 +365,7 @@ fun HomeScreen(
                 onCopy = viewModel::copyRow,
                 onSetRelationship = viewModel::setRelationship,
                 onMessageRequest = viewModel::messageRequestAction,
+                onInteract = viewModel::interact,
             )
         }
     }
@@ -816,6 +817,7 @@ private fun StatusList(
     onCopy: (String) -> Unit,
     onSetRelationship: (accountId: String, action: String, acct: String) -> Unit,
     onMessageRequest: (rowId: String, accept: Boolean) -> Unit,
+    onInteract: (String) -> Unit,
 ) {
     if (rows.isEmpty()) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -926,6 +928,7 @@ private fun StatusList(
                 onCopy = onCopy,
                 onSetRelationship = onSetRelationship,
                 onMessageRequest = onMessageRequest,
+                onInteract = onInteract,
             )
         }
     }

@@ -691,6 +691,12 @@ class CoreViewModel(app: Application) : AndroidViewModel(app) {
                 canMessage = e.optBoolean("can_message"),
             )
 
+            // Tap on a person with "Tap on a user" set to User actions: the profile
+            // screen holds every action for a person (as on the Mac).
+            "invisible_ui_action" -> {
+                if (e.optString("action") == "UserActions") performAction("UserProfile")
+            }
+
             "post_info" -> {
                 val features = e.optJSONObject("features")
                 val poll = e.optJSONObject("poll")
@@ -1271,6 +1277,12 @@ class CoreViewModel(app: Application) : AndroidViewModel(app) {
     /** Report the reading position on the current timeline (persists it). */
     fun noteSelection(id: String) = core.dispatch("note_selection") { put("id", id) }
 
+    /** Run a core action by name (perform_action), on [id] or the current row. */
+    fun performAction(action: String, id: String? = null) = core.dispatch("perform_action") {
+        put("action", action)
+        if (!id.isNullOrBlank()) put("id", id)
+    }
+
     // Find in timeline (client-side, mirroring the desktop apps): a case-insensitive
     // substring search over the posts' spoken text. A match moves the reading
     // position there (scrolling to it) and speaks it through TalkBack; the query is
@@ -1369,6 +1381,9 @@ class CoreViewModel(app: Application) : AndroidViewModel(app) {
     fun openPostInfo(id: String) = core.dispatch("post_info") { put("id", id) }
 
     fun closePostInfo() { _postInfo.value = null }
+
+    /** The interact action (tap / Enter): the core resolves it from Behavior settings. */
+    fun interact(id: String) = performAction("Enter", id)
 
     /** Open the post on its server's website. */
     fun openStatusInBrowser(id: String) = core.dispatch("open_status") { put("id", id) }

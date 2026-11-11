@@ -4,6 +4,7 @@ FastSMRW changelog
 0.6.1
 -----
 
+- New: on Android, tapping a post or a person now does what you choose under Settings, Behavior (Post Info by default), as on iPhone.
 - New: on Android, Post Info (in a post's actions) shows the whole post, including the text behind a content warning, with its actions and poll voting.
 - New: in the media player, Page Up and Page Down change the volume by a bigger step than the arrows, and Home and End set it straight to full or silent.
 - New: closing a post you've started writing now asks before throwing it away; turn it off under Settings, Confirmation.

@@ -56,8 +56,10 @@ read out by TalkBack, so it stays consistent with the other versions.
 
 ## Acting on a post
 
-Tap a post once to open its thread (for a grouped like or boost notification, a
-single tap opens the list of everyone involved).
+Tap a post once to run its tap action: Post Info by default, or what you choose
+under Settings, Behavior, "Tap on a post". A grouped like or boost notification
+opens the list of everyone involved, and a person (in Followers, Search People
+and similar lists) runs "Tap on a user": the profile by default.
 
 For everything else, long-press the post to open its menu. The same actions are
 offered to TalkBack as custom actions, so you can also reach them by swiping up
@@ -168,7 +170,8 @@ the other versions of FastSM:
 - Advanced — how many pages of posts to fetch per load.
 - Confirmation — ask before boosting, unboosting, liking, unliking, clearing a
   timeline, blocking, unblocking, or deleting a post.
-- Behavior — put extra reply mentions at the end.
+- Behavior — what tapping a post or a person does, and putting extra reply
+  mentions at the end.
 - Post actions — show, hide, and reorder the per-post actions (the TalkBack
   swipe actions).
 - Updates — check for updates on startup, or check now; shows your version.

@@ -34,6 +34,7 @@ import me.masonasons.fastsm.ui.ProfileEditorDialog
 import me.masonasons.fastsm.ui.compose.ComposeScreen
 import me.masonasons.fastsm.ui.home.HomeScreen
 import me.masonasons.fastsm.ui.media.MediaScreen
+import me.masonasons.fastsm.ui.post.PostInfoScreen
 import me.masonasons.fastsm.ui.profile.ProfileScreen
 import me.masonasons.fastsm.ui.settings.AccountSettingsScreen
 import me.masonasons.fastsm.ui.settings.SettingsScreen
@@ -98,6 +99,7 @@ private fun App(vm: CoreViewModel) {
     val accounts by vm.accounts.collectAsStateWithLifecycle()
     val composeContext by vm.composeContext.collectAsStateWithLifecycle()
     val profile by vm.profile.collectAsStateWithLifecycle()
+    val postInfo by vm.postInfo.collectAsStateWithLifecycle()
     val media by vm.media.collectAsStateWithLifecycle()
     val appUpdate by vm.appUpdate.collectAsStateWithLifecycle()
     val profileEditor by vm.profileEditor.collectAsStateWithLifecycle()
@@ -129,6 +131,7 @@ private fun App(vm: CoreViewModel) {
 
     val ctx = composeContext
     val prof = profile
+    val info = postInfo
     val med = media
     when {
         med != null -> MediaScreen(item = med, onClose = { vm.closeMedia() })
@@ -136,6 +139,11 @@ private fun App(vm: CoreViewModel) {
             viewModel = vm,
             ctx = ctx,
             onDone = { vm.cancelCompose() },
+        )
+        info != null -> PostInfoScreen(
+            viewModel = vm,
+            info = info,
+            onClose = { vm.closePostInfo() },
         )
         prof != null -> ProfileScreen(
             viewModel = vm,
